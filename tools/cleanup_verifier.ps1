@@ -42,7 +42,8 @@ function Get-BYOVDArtifactPatterns {
         "DriverFiles" = @(
             "iqvw64.sys", "iqvw64_test.sys", "test_driver.sys",
             "smuol.sys", "viragt64.sys", "dbutil_2_3.sys",
-            "*test*driver*.sys", "*byovd*.sys", "*vulnerable*.sys"
+            "*test*driver*.sys", "*byovd*.sys", "*vulnerable*.sys",
+            "*intel*eth*.sys", "*diagnostics*.sys", "*mock*.sys"
         )
         "VBSFiles" = @(
             "update.vbs", "driver_loader.vbs", "*byovd*.vbs",
@@ -51,7 +52,9 @@ function Get-BYOVDArtifactPatterns {
         "LogFiles" = @(
             "*byovd*.log", "*driver*.log", "*test*.log",
             "vbs_driver_test.log", "driver_loader.log",
-            "*byovd_simulation*.log", "*validation*.log"
+            "*byovd_simulation*.log", "*validation*.log",
+            "*iqvw64*.log", "*nvidia_install*.log", "*exploit_artifacts*.txt",
+            "iqvw64_errors_*.log", "iqvw64_execution_summary_*.txt"
         )
         "ConfigFiles" = @(
             "*byovd*.ini", "*driver*.ini", "config.ini",
@@ -90,11 +93,17 @@ function Get-BYOVDRegistryPaths {
         "HKCU:\Software\VBSBYOVDTest",
         "HKCU:\Software\BYOVDMasqueradeTest",
         "HKCU:\Software\BYOVDDetectionTest",
+        "HKCU:\Software\Intel\Diagnostics",
+        "HKCU:\Software\BYOVDNVIDIATest",
+        "HKCU:\Software\DriverTest",
+        "HKCU:\Software\NVIDIA Corporation\NvContainer",
         "HKLM:\SOFTWARE\BYOVDTest",
         "HKLM:\SYSTEM\CurrentControlSet\Services\*BYOVD*",
         "HKLM:\SYSTEM\CurrentControlSet\Services\*TestDriver*",
         "HKLM:\SYSTEM\CurrentControlSet\Services\VulnEthDriver",
-        "HKLM:\SYSTEM\CurrentControlSet\Services\BYOVDTestDriver"
+        "HKLM:\SYSTEM\CurrentControlSet\Services\BYOVDTestDriver",
+        "HKLM:\SYSTEM\CurrentControlSet\Services\iqvw64",
+        "HKLM:\SYSTEM\CurrentControlSet\Services\NVIDIAEthDiag"
     )
 }
 
@@ -226,7 +235,8 @@ function Scan-ServiceArtifacts {
     $foundServices = @()
     $servicePatterns = @(
         "*BYOVD*", "*Test*Driver*", "*Vuln*", "*Intel*Eth*",
-        "*Driver*Test*", "*Mock*", "*Simulation*"
+        "*Driver*Test*", "*Mock*", "*Simulation*", "iqvw64",
+        "NVIDIAEthDiag", "*Diagnostics*", "*CVE*"
     )
     
     foreach ($pattern in $servicePatterns) {

@@ -11,6 +11,7 @@ param(
     [switch]$TestWindowsDefender = $false,
     [switch]$TestPowerShellLogging = $false,
     [switch]$TestAttackChainIoCs = $false,
+    [switch]$TestFailedTechniques = $false,
     [switch]$TestAllDetections = $false,
     [switch]$GenerateReport = $true,
     [string]$OutputPath = "$env:TEMP\byovd_detection_report.html",
@@ -193,15 +194,43 @@ function Test-ServiceDetection {
 function Invoke-DriverInstallationTest {
     Write-ValidationLog "=== Starting Driver Installation Detection Test ===" -Level "INFO"
     Write-ValidationLog "MITRE ATT&CK Techniques Tested:" -Level "INFO"
-    Write-ValidationLog "  - T1068: Exploitation for Privilege Escalation (Driver Loading)" -Level "INFO"
+    Write-ValidationLog "  - T1068: Exploitation for Privilege Escalation (CVE-2015-2291)" -Level "INFO"
+    Write-ValidationLog "  - T1014: Rootkit (Kernel-level persistence)" -Level "INFO"
+    Write-ValidationLog "  - T1543.003: Windows Service (Driver service creation)" -Level "INFO"
+    Write-ValidationLog "  - T1547.006: Kernel Modules and Extensions" -Level "INFO"
     Write-ValidationLog "  - T1070.004: File Deletion (Indicator Removal)" -Level "INFO"
     
-    $testDriverPath = "$env:TEMP\test_detection_driver.sys"
-    $testServiceName = "BYOVDDetectionTest"
+    # Look for actual BYOVD simulation artifacts first
+    $actualDriverPaths = @(
+        "$env:TEMP\nvidiadrivers\iqvw64.sys",
+        "$env:TEMP\iqvw64.sys",
+        ".\nvidiadrivers\iqvw64.sys",
+        ".\iqvw64.sys"
+    )
     
-    # Create test driver
-    $driverContent = "BYOVD Detection Test Driver - $(Get-Date)"
-    Set-Content -Path $testDriverPath -Value $driverContent
+    $testDriverPath = $null
+    foreach ($path in $actualDriverPaths) {
+        if (Test-Path $path) {
+            $testDriverPath = $path
+            Write-ValidationLog "Found actual BYOVD driver artifact: $path" -Level "SUCCESS"
+            break
+        }
+    }
+    
+    # If no actual artifact found, create test driver for validation purposes
+    if (-not $testDriverPath) {
+        $testDriverPath = "$env:TEMP\iqvw64.sys"
+        Write-ValidationLog "No existing BYOVD driver found, creating test artifact" -Level "INFO"
+        # Create realistic mock driver content matching the actual driver_loader.vbs
+        $driverContent = "MOCK VULNERABLE DRIVER - BYOVD DETECTION TEST`r`n" + 
+                        "Driver: iqvw64.sys (Intel Ethernet Diagnostics)`r`n" +
+                        "CVE: CVE-2015-2291 (Write-What-Where)`r`n" +
+                        "Created: $(Get-Date)`r`n" +
+                        "Purpose: Detection validation test"
+        Set-Content -Path $testDriverPath -Value $driverContent
+    }
+    
+    $testServiceName = "iqvw64"  # Use actual service name from simulation
     
     # Test file creation detection
     Test-FileSystemDetection -FilePath $testDriverPath -Operation "Created" -MitreTechnique "T1068" -MitreTactic "Privilege Escalation"
@@ -231,7 +260,9 @@ function Invoke-DriverInstallationTest {
 function Invoke-ProcessTerminationTest {
     Write-ValidationLog "=== Starting Process Termination Detection Test ===" -Level "INFO"
     Write-ValidationLog "MITRE ATT&CK Techniques Tested:" -Level "INFO"
-    Write-ValidationLog "  - T1562.001: Impair Defenses (Process Termination)" -Level "INFO"
+    Write-ValidationLog "  - T1562.001: Impair Defenses (Security software termination)" -Level "INFO"
+    Write-ValidationLog "  - T1003: OS Credential Dumping (LSASS access prep)" -Level "INFO"
+    Write-ValidationLog "  - T1055: Process Injection (Process hollowing)" -Level "INFO"
     Write-ValidationLog "  - T1059: Command and Scripting Interpreter (Process Creation)" -Level "INFO"
     
     # Start test processes
@@ -283,16 +314,37 @@ function Invoke-VBSExecutionTest {
     Write-ValidationLog "  - T1059.005: Visual Basic Script Execution" -Level "INFO"
     Write-ValidationLog "  - T1105: Ingress Tool Transfer (Script Delivery)" -Level "INFO"
     
-    $testVBSPath = "$env:TEMP\byovd_detection_test.vbs"
+    # Look for actual BYOVD VBS files first
+    $actualVBSPaths = @(
+        "$env:TEMP\nvidiadrivers\driver_loader.vbs",
+        "$env:TEMP\nvidiadrivers\install.vbs", 
+        "$env:TEMP\nvidiadrivers\update.vbs",
+        ".\nvidiadrivers\driver_loader.vbs",
+        ".\nvidiadrivers\install.vbs",
+        ".\nvidiadrivers\update.vbs"
+    )
     
-    # Create test VBS script
-    $vbsContent = @'
-' BYOVD Detection Test VBS
-WScript.Echo "BYOVD Detection Test - VBS Execution"
-CreateObject("WScript.Shell").Run "cmd.exe /c echo VBS Detection Test > " & CreateObject("WScript.Shell").ExpandEnvironmentStrings("%TEMP%") & "\vbs_test_output.txt", 0, True
+    $testVBSPath = $null
+    foreach ($path in $actualVBSPaths) {
+        if (Test-Path $path) {
+            $testVBSPath = $path
+            Write-ValidationLog "Found actual BYOVD VBS artifact: $path" -Level "SUCCESS"
+            break
+        }
+    }
+    
+    # If no actual VBS found, create test VBS for validation purposes
+    if (-not $testVBSPath) {
+        $testVBSPath = "$env:TEMP\byovd_detection_test.vbs"
+        Write-ValidationLog "No existing BYOVD VBS found, creating test artifact" -Level "INFO"
+        
+        # Create test VBS script
+        $vbsContent = @'
+' BYOVD Detection Test VBS - Simulating driver_loader.vbs behavior
+CreateObject("WScript.Shell").Run "cmd.exe /c echo BYOVD VBS Detection Test > " & CreateObject("WScript.Shell").ExpandEnvironmentStrings("%TEMP%") & "\vbs_test_output.txt", 0, True
 '@
-    
-    Set-Content -Path $testVBSPath -Value $vbsContent
+        Set-Content -Path $testVBSPath -Value $vbsContent
+    }
     
     # Test VBS file creation
     Test-FileSystemDetection -FilePath $testVBSPath -Operation "Created" -MitreTechnique "T1105" -MitreTactic "Command and Control"
@@ -335,21 +387,54 @@ function Invoke-RegistryModificationTest {
     Write-ValidationLog "  - T1112: Modify Registry (Persistence & Configuration)" -Level "INFO"
     Write-ValidationLog "  - T1547.001: Boot or Logon Autostart Execution" -Level "INFO"
     
-    $testRegPath = "HKCU:\Software\BYOVDDetectionTest"
+    # Look for actual BYOVD registry keys first
+    $actualRegPaths = @(
+        "HKCU:\Software\Intel\Diagnostics",
+        "HKCU:\Software\DriverTest\iqvw64",
+        "HKCU:\Software\BYOVDNVIDIATest"
+    )
     
-    # Create test registry key
+    $testRegPath = $null
+    $foundExistingKey = $false
+    
+    foreach ($regPath in $actualRegPaths) {
+        if (Test-Path $regPath) {
+            $testRegPath = $regPath
+            $foundExistingKey = $true
+            Write-ValidationLog "Found actual BYOVD registry artifact: $regPath" -Level "SUCCESS"
+            break
+        }
+    }
+    
+    # If no actual registry key found, create test key for validation purposes
+    if (-not $testRegPath) {
+        $testRegPath = "HKCU:\Software\Intel\Diagnostics"
+        Write-ValidationLog "No existing BYOVD registry keys found, creating test artifact" -Level "INFO"
+    }
+    
+    # Create or update test registry key
     try {
-        New-Item -Path $testRegPath -Force | Out-Null
-        Write-ValidationLog "Created test registry key: $testRegPath" -Level "INFO"
+        if (-not $foundExistingKey) {
+            New-Item -Path $testRegPath -Force | Out-Null
+            Write-ValidationLog "Created test registry key: $testRegPath" -Level "INFO"
+        }
         
         # Test registry key detection
         Test-RegistryDetection -RegistryPath $testRegPath
         
-        # Add test values
-        $testValues = @{
-            "DetectionTest" = "BYOVD Registry Test"
-            "Timestamp" = (Get-Date).ToString()
-            "TestMode" = "Active"
+        # Add test values that match actual BYOVD simulation
+        if (-not $foundExistingKey) {
+            $testValues = @{
+                "InstallDate" = (Get-Date).ToString()
+                "Version" = "7.1.0.1041"
+                "ServiceName" = "iqvw64"
+                "DriverPath" = "$env:SYSTEMROOT\System32\drivers\iqvw64.sys"
+            }
+        } else {
+            # If we found existing keys, just add a detection test marker
+            $testValues = @{
+                "DetectionTest" = "Validated - $(Get-Date)"
+            }
         }
         
         foreach ($value in $testValues.GetEnumerator()) {
@@ -709,7 +794,13 @@ function Validate-AttackChainIoCs {
         "$env:TEMP\*driver*.log",
         "$env:TEMP\vbs_*.log",
         "$env:TEMP\byovd_attack_simulation_*.log",
-        "$env:TEMP\*.vbs"
+        "$env:TEMP\*.vbs",
+        "$env:TEMP\iqvw64_*.log",
+        "$env:TEMP\*exploit_artifacts*.txt",
+        "$env:TEMP\nvidia_install_*.log",
+        "$env:TEMP\nvidia_update_check.vbs",
+        "$env:TEMP\iqvw64_errors_*.log",
+        "$env:TEMP\iqvw64_execution_summary_*.txt"
     )
     
     foreach ($ioc in $fileIoCs) {
@@ -752,7 +843,10 @@ function Validate-AttackChainIoCs {
         "HKCU:\Software\BYOVDNVIDIASetup", 
         "HKCU:\Software\VBSBYOVDTest",
         "HKCU:\Software\BYOVDTestSetup",
-        "HKCU:\Software\TestEnvironment"
+        "HKCU:\Software\TestEnvironment",
+        "HKCU:\Software\Intel\Diagnostics",
+        "HKCU:\Software\DriverTest\iqvw64",
+        "HKCU:\Software\NVIDIA Corporation\NvContainer"
     )
     
     foreach ($regPath in $registryIoCs) {
@@ -897,6 +991,145 @@ function Validate-AttackChainIoCs {
     return $detected
 }
 
+function Validate-FailedTechniqueScenarios {
+    param([string]$TestName = "Failed Technique Scenario Validation")
+    
+    Write-ValidationLog "=== Starting Failed Technique Scenario Validation ===" -Level "INFO"
+    Write-ValidationLog "Checking for error logs, execution summaries, and partial technique artifacts" -Level "INFO"
+    
+    $failureResults = @{
+        ErrorLogs = @()
+        ExecutionSummaries = @()
+        PartialArtifacts = @()
+        TotalFound = 0
+    }
+    
+    # Check for error logs from enhanced driver loader
+    Write-ValidationLog "Checking for error logs..." -Level "INFO"
+    
+    $errorLogPattern = "$env:TEMP\iqvw64_errors_*.log"
+    try {
+        $errorLogs = Get-ChildItem $errorLogPattern -ErrorAction SilentlyContinue
+        foreach ($log in $errorLogs) {
+            $content = Get-Content $log -Head 20 -ErrorAction SilentlyContinue
+            $failureResults.ErrorLogs += @{
+                Path = $log.FullName
+                Size = $log.Length
+                LastModified = $log.LastWriteTime
+                ErrorCount = ($content | Where-Object { $_ -like "*ERROR*" }).Count
+                Preview = ($content -join "; ").Substring(0, [Math]::Min(200, ($content -join "; ").Length))
+            }
+            Write-ValidationLog "[+] ERROR LOG DETECTED: $($log.Name) with $($($content | Where-Object { $_ -like '*ERROR*' }).Count) errors" -Level "DETECTION"
+        }
+    } catch {
+        Write-ValidationLog "Could not check error logs: $($_.Exception.Message)" -Level "WARNING"
+    }
+    
+    # Check for execution summaries with technique success/failure data
+    Write-ValidationLog "Checking for execution summaries..." -Level "INFO"
+    
+    $summaryPattern = "$env:TEMP\iqvw64_execution_summary_*.txt"
+    try {
+        $summaryFiles = Get-ChildItem $summaryPattern -ErrorAction SilentlyContinue
+        foreach ($summary in $summaryFiles) {
+            $content = Get-Content $summary -ErrorAction SilentlyContinue
+            $successCount = ($content | Where-Object { $_ -like "*SUCCESS*" }).Count
+            $failedCount = ($content | Where-Object { $_ -like "*FAILED*" }).Count
+            
+            $failureResults.ExecutionSummaries += @{
+                Path = $summary.FullName
+                Size = $summary.Length
+                LastModified = $summary.LastWriteTime
+                SuccessfulTechniques = $successCount
+                FailedTechniques = $failedCount
+                TotalTechniques = $successCount + $failedCount
+            }
+            Write-ValidationLog "[+] EXECUTION SUMMARY DETECTED: $($summary.Name) - $successCount successful, $failedCount failed techniques" -Level "DETECTION"
+        }
+    } catch {
+        Write-ValidationLog "Could not check execution summaries: $($_.Exception.Message)" -Level "WARNING"
+    }
+    
+    # Check for partial technique artifacts (registry keys that might exist even if techniques partially failed)
+    Write-ValidationLog "Checking for partial technique artifacts..." -Level "INFO"
+    
+    $partialRegistryKeys = @(
+        "HKCU:\Software\Intel\Diagnostics",
+        "HKCU:\Software\DriverTest\iqvw64"
+    )
+    
+    foreach ($regPath in $partialRegistryKeys) {
+        try {
+            if (Test-Path $regPath) {
+                $values = Get-ItemProperty $regPath -ErrorAction SilentlyContinue
+                $regValues = @()
+                if ($values) {
+                    $values.PSObject.Properties | Where-Object { $_.Name -notlike 'PS*' } | ForEach-Object {
+                        $regValues += "$($_.Name)=$($_.Value)"
+                    }
+                }
+                
+                $failureResults.PartialArtifacts += @{
+                    Type = "Registry"
+                    Path = $regPath
+                    Values = $regValues
+                    LastModified = (Get-Item $regPath).LastWriteTime
+                }
+                Write-ValidationLog "[+] PARTIAL REGISTRY ARTIFACT: $regPath with $($regValues.Count) values" -Level "DETECTION"
+            }
+        } catch {
+            Write-ValidationLog "Could not check registry path $regPath`: $($_.Exception.Message)" -Level "WARNING"
+        }
+    }
+    
+    # Calculate totals
+    $failureResults.TotalFound = $failureResults.ErrorLogs.Count + 
+                                 $failureResults.ExecutionSummaries.Count + 
+                                 $failureResults.PartialArtifacts.Count
+    
+    $detected = $failureResults.TotalFound -gt 0
+    
+    # Create detailed result
+    $details = @()
+    if ($failureResults.ErrorLogs.Count -gt 0) {
+        $details += "Error Logs: $($failureResults.ErrorLogs.Count)"
+    }
+    if ($failureResults.ExecutionSummaries.Count -gt 0) {
+        $details += "Execution Summaries: $($failureResults.ExecutionSummaries.Count)"
+    }
+    if ($failureResults.PartialArtifacts.Count -gt 0) {
+        $details += "Partial Artifacts: $($failureResults.PartialArtifacts.Count)"
+    }
+    
+    $result = @{
+        TestName = $TestName
+        DetectionMethod = "Failed Technique Analysis"
+        MitreTechnique = "Multiple"
+        MitreTactic = "Multiple"
+        Detected = $detected
+        Details = "Total failure artifacts: $($failureResults.TotalFound) [$($details -join ', ')]"
+        EventCount = $failureResults.TotalFound
+        Timestamp = Get-Date
+        FailureArtifacts = $failureResults
+    }
+    
+    $script:TestResults += $result
+    
+    Write-ValidationLog "=== Failed Technique Scenario Validation Summary ===" -Level "INFO"
+    Write-ValidationLog "Error logs found: $($failureResults.ErrorLogs.Count)" -Level "INFO"
+    Write-ValidationLog "Execution summaries found: $($failureResults.ExecutionSummaries.Count)" -Level "INFO"
+    Write-ValidationLog "Partial artifacts found: $($failureResults.PartialArtifacts.Count)" -Level "INFO"
+    Write-ValidationLog "TOTAL FAILURE ARTIFACTS: $($failureResults.TotalFound)" -Level "SUCCESS"
+    
+    if ($detected) {
+        Write-ValidationLog "[+] DETECTION: Failed technique scenarios provide valuable forensic data" -Level "DETECTION"
+    } else {
+        Write-ValidationLog "[-] NO FAILURE ARTIFACTS: No error logs or execution summaries found" -Level "WARNING"
+    }
+    
+    return $detected
+}
+
 function Generate-DetectionReport {
     Write-ValidationLog "Generating detection validation report..." -Level "INFO"
     
@@ -986,11 +1219,17 @@ function Generate-DetectionReport {
     <div class="summary">
         <p>This validation tested detection capabilities for the following BYOVD-related techniques:</p>
         <ul>
-            <li><strong>T1068:</strong> Exploitation for Privilege Escalation (Driver loading)</li>
-            <li><strong>T1562.001:</strong> Impair Defenses (Process termination)</li>
+            <li><strong>T1068:</strong> Exploitation for Privilege Escalation (CVE-2015-2291 Intel Ethernet)</li>
+            <li><strong>T1014:</strong> Rootkit (Kernel-level compromise and hiding)</li>
+            <li><strong>T1543.003:</strong> Windows Service (Driver service persistence)</li>
+            <li><strong>T1547.006:</strong> Kernel Modules and Extensions (BYOVD installation)</li>
+            <li><strong>T1562.001:</strong> Impair Defenses (Security software termination)</li>
+            <li><strong>T1003:</strong> OS Credential Dumping (LSASS access preparation)</li>
+            <li><strong>T1055:</strong> Process Injection (Process hollowing preparation)</li>
             <li><strong>T1059.005:</strong> Command and Scripting Interpreter: Visual Basic</li>
-            <li><strong>T1112:</strong> Modify Registry (Registry modifications)</li>
-            <li><strong>T1070.004:</strong> Indicator Removal (File operations)</li>
+            <li><strong>T1112:</strong> Modify Registry (Driver and persistence modifications)</li>
+            <li><strong>T1070.004:</strong> Indicator Removal (File operations and cleanup)</li>
+            <li><strong>T1105:</strong> Ingress Tool Transfer (Driver package delivery)</li>
         </ul>
     </div>
     
@@ -1303,7 +1542,7 @@ level: medium
 }
 
 # Parameter validation
-if (-not ($TestDriverInstallation -or $TestProcessTermination -or $TestVBSExecution -or $TestRegistryModification -or $TestFileOperations -or $TestWindowsDefender -or $TestPowerShellLogging -or $TestAttackChainIoCs -or $TestAllDetections)) {
+if (-not ($TestDriverInstallation -or $TestProcessTermination -or $TestVBSExecution -or $TestRegistryModification -or $TestFileOperations -or $TestWindowsDefender -or $TestPowerShellLogging -or $TestAttackChainIoCs -or $TestFailedTechniques -or $TestAllDetections)) {
     Write-Host "No test selected. Use -TestAllDetections to run all tests or specify individual tests:" -ForegroundColor Yellow
     Write-Host "  -TestDriverInstallation" -ForegroundColor Cyan
     Write-Host "  -TestProcessTermination" -ForegroundColor Cyan
@@ -1313,6 +1552,7 @@ if (-not ($TestDriverInstallation -or $TestProcessTermination -or $TestVBSExecut
     Write-Host "  -TestWindowsDefender" -ForegroundColor Cyan
     Write-Host "  -TestPowerShellLogging" -ForegroundColor Cyan
     Write-Host "  -TestAttackChainIoCs" -ForegroundColor Cyan
+    Write-Host "  -TestFailedTechniques" -ForegroundColor Cyan
     Write-Host "Example: .\detection_validator.ps1 -TestAllDetections" -ForegroundColor Green
     exit
 }
@@ -1332,6 +1572,7 @@ if ($TestAllDetections) {
     $TestWindowsDefender = $true
     $TestPowerShellLogging = $true
     $TestAttackChainIoCs = $true
+    $TestFailedTechniques = $true
 }
 
 if ($TestDriverInstallation) {
@@ -1364,6 +1605,10 @@ if ($TestPowerShellLogging) {
 
 if ($TestAttackChainIoCs) {
     Validate-AttackChainIoCs
+}
+
+if ($TestFailedTechniques) {
+    Validate-FailedTechniqueScenarios
 }
 
 # Cleanup any remaining test processes
