@@ -1,0 +1,263 @@
+attack_technique: T1036.005
+display_name: BYOVD - Driver File Masquerading
+atomic_tests:
+- name: Malicious Driver Masquerading as Legitimate Driver
+  auto_generated_guid: f7e8d9c0-b1a2-3456-7890-abcdef123456
+  description: |
+    Simulates masquerading malicious drivers using legitimate driver names and locations.
+    Demonstrates T1036.005 - Masquerading: Match Legitimate Name or Location.
+    Based on techniques used by SCATTERED SPIDER, Medusa, and other threat actors.
+  supported_platforms:
+  - windows
+  input_arguments:
+    legitimate_driver_name:
+      description: Name of legitimate driver to masquerade as
+      type: string
+      default: iqvw64.sys
+    masquerade_location:
+      description: Location to place masquerading driver
+      type: string
+      default: "%SYSTEMROOT%\System32\drivers"
+    test_location:
+      description: Safe test location for simulation
+      type: string
+      default: "%TEMP%\driver_masquerade_test"
+    fake_signature_info:
+      description: Fake signature information to simulate
+      type: string
+      default: "Intel Corporation"
+    simulation_mode:
+      description: Run in safe simulation mode
+      type: boolean
+      default: true
+  dependency_executor_name: powershell
+  dependencies:
+  - description: Test directory should exist
+    prereq_command: |
+      $testPath = [Environment]::ExpandEnvironmentVariables("#{test_location}")
+      Test-Path $testPath
+    get_prereq_command: |
+      $testPath = [Environment]::ExpandEnvironmentVariables("#{test_location}")
+      New-Item -Path $testPath -ItemType Directory -Force
+      Write-Host "Created test directory: $testPath"
+  executor:
+    command: |
+      if ("#{simulation_mode}" -eq "true") {
+        Write-Host "=== BYOVD Driver Masquerading Simulation ==="
+        Write-Host "Technique: T1036.005 - Masquerading: Match Legitimate Name or Location"
+        Write-Host "Simulating driver masquerading techniques..."
+        
+        $legitimateDriver = "#{legitimate_driver_name}"
+        $testLocation = [Environment]::ExpandEnvironmentVariables("#{test_location}")
+        $fakeSignature = "#{fake_signature_info}"
+        
+        # Create various masquerading scenarios
+        Write-Host "`n[1] Name Masquerading: Creating fake drivers with legitimate names"
+        
+        $masqueradeFiles = @(
+          @{Name="$legitimateDriver"; Desc="Exact name match"},
+          @{Name="iqvw64_.sys"; Desc="Similar name with underscore"},
+          @{Name="iqvw32.sys"; Desc="Architecture variant"},
+          @{Name="nvidia_drv.sys"; Desc="Generic GPU driver name"},
+          @{Name="intel_eth.sys"; Desc="Generic Intel driver name"},
+          @{Name="msft_driver.sys"; Desc="Microsoft-themed name"},
+          @{Name="security_drv.sys"; Desc="Security software theme"}
+        )
+        
+        foreach ($file in $masqueradeFiles) {
+          $filePath = Join-Path $testLocation $file.Name
+          
+          $content = @"
+MASQUERADE TEST: $($file.Desc)
+Original: $legitimateDriver
+Fake Signature: $fakeSignature
+Created: $(Get-Date)
+Purpose: BYOVD Masquerading Simulation
+
+This file simulates a malicious driver masquerading as:
+$($file.Desc)
+
+Real attacks would use this to:
+- Bypass allow-lists based on filename
+- Trick administrators during manual inspection
+- Evade signature-based detection
+- Appear legitimate in file system listings
+
+MITRE ATT&CK: T1036.005 - Masquerading
+"@
+          
+          Set-Content -Path $filePath -Value $content
+          
+          # Simulate file attributes manipulation
+          $fileItem = Get-Item $filePath
+          
+          Write-Host "Created masquerade file: $($file.Name)"
+          Write-Host "  Description: $($file.Desc)"
+          Write-Host "  Size: $($fileItem.Length) bytes"
+          Write-Host "  Path: $filePath"
+        }
+        
+        Write-Host "`n[2] Location Masquerading: Simulating placement in system directories"
+        $systemDirs = @(
+          "System32\drivers",
+          "System32",
+          "SysWOW64",
+          "Windows\System32\drivers",
+          "Program Files\Common Files"
+        )
+        
+        foreach ($dir in $systemDirs) {
+          Write-Host "Simulated placement in: $dir\$legitimateDriver"
+          Write-Host "  Real attack impact: High legitimacy appearance"
+        }
+        
+        Write-Host "`n[3] Signature Masquerading: Simulating certificate information"
+        $fakeSignatures = @(
+          "Microsoft Corporation",
+          "Intel Corporation", 
+          "NVIDIA Corporation",
+          "AMD Inc.",
+          "Realtek Semiconductor Corp.",
+          "Broadcom Corporation"
+        )
+        
+        foreach ($sig in $fakeSignatures) {
+          Write-Host "Simulated signature: $sig"
+          Write-Host "  Attack technique: Stolen/fake certificates"
+        }
+        
+        Write-Host "`n[4] Metadata Masquerading: Creating fake version information"
+        $fakeMetadata = @{
+          "Company" = $fakeSignature
+          "Description" = "Intel(R) Ethernet Diagnostics Driver"
+          "Version" = "1.0.0.1"
+          "Copyright" = "Copyright (C) Intel Corporation"
+          "Product" = "Intel(R) Network Connections"
+        }
+        
+        Write-Host "Simulated file metadata:"
+        $fakeMetadata.GetEnumerator() | ForEach-Object {
+          Write-Host "  $($_.Key): $($_.Value)"
+        }
+        
+        Write-Host "`n[5] Hash Analysis: Demonstrating detection bypass attempts"
+        $testFile = Join-Path $testLocation $legitimateDriver
+        if (Test-Path $testFile) {
+          $hash = Get-FileHash -Path $testFile -Algorithm SHA256
+          Write-Host "Test file hash: $($hash.Hash)"
+          Write-Host "Real attack: Would differ from known good hashes"
+          Write-Host "Detection: Hash-based allow-lists would catch this"
+        }
+        
+        Write-Host "`n[6] Registry Masquerading: Simulating service registration"
+        $regPath = "HKCU:\Software\BYOVDMasqueradeTest"
+        if (-not (Test-Path $regPath)) {
+          New-Item -Path $regPath -Force | Out-Null
+        }
+        
+        Set-ItemProperty -Path $regPath -Name "DriverName" -Value $legitimateDriver
+        Set-ItemProperty -Path $regPath -Name "ServiceName" -Value "IntelEthDiag"
+        Set-ItemProperty -Path $regPath -Name "DisplayName" -Value "Intel(R) Ethernet Diagnostics Service"
+        Set-ItemProperty -Path $regPath -Name "FakeSignature" -Value $fakeSignature
+        
+        Write-Host "Registry masquerading entries created:"
+        Get-ItemProperty -Path $regPath | Select-Object DriverName, ServiceName, DisplayName, FakeSignature | Format-List
+        
+        Write-Host "`n[7] Process Name Masquerading: Simulating legitimate process names"
+        $fakeProcesses = @(
+          "svchost.exe",
+          "winlogon.exe", 
+          "services.exe",
+          "csrss.exe",
+          "lsass.exe"
+        )
+        
+        Write-Host "Processes that malicious drivers might masquerade as:"
+        foreach ($proc in $fakeProcesses) {
+          Write-Host "  $proc - System critical process"
+        }
+        
+        # Create detection opportunities log
+        $detectionLog = Join-Path $testLocation "masquerading_detection_opportunities.txt"
+        $detectionContent = @"
+BYOVD Driver Masquerading - Detection Opportunities
+===================================================
+Generated: $(Get-Date)
+
+File-based Detection:
+- Hash verification against known good drivers
+- Digital signature validation
+- File metadata analysis
+- Unusual file locations
+- Recently created drivers in system directories
+
+Registry-based Detection:
+- Service creation with driver-like names
+- Registry entries mimicking legitimate drivers
+- Services with suspicious binary paths
+
+Behavioral Detection:
+- Driver loading events
+- Process creation from unusual locations
+- File system modifications in protected directories
+- Certificate validation failures
+
+Timeline Analysis:
+- Driver file creation vs. service registration timing
+- Correlation with other attack activities
+- Comparison with known attack patterns
+
+Network Detection:
+- Driver downloads from suspicious sources
+- C2 communications after driver loading
+- DNS queries for driver-themed domains
+"@
+        
+        Set-Content -Path $detectionLog -Value $detectionContent
+        Write-Host "Detection opportunities documented: $detectionLog"
+        
+        # Log the event
+        try {
+          New-EventLog -LogName Application -Source "BYOVD-Test" -ErrorAction SilentlyContinue
+        } catch {}
+        Write-EventLog -LogName Application -Source "BYOVD-Test" -EventId 4001 -EntryType Warning -Message "BYOVD driver masquerading simulation completed - multiple masquerade techniques demonstrated"
+        
+        Write-Host "`n=== Masquerading Simulation Summary ==="
+        Write-Host "Files created: $(@($masqueradeFiles).Count)"
+        Write-Host "Techniques demonstrated: Name, Location, Signature, Metadata masquerading"
+        Write-Host "Detection focus: File integrity, signature validation, behavioral analysis"
+        Write-Host "Status: Simulation completed successfully"
+        
+      } else {
+        Write-Host "ERROR: Non-simulation mode disabled for safety"
+      }
+    cleanup_command: |
+      # Remove masquerading test artifacts
+      $testLocation = [Environment]::ExpandEnvironmentVariables("#{test_location}")
+      
+      if (Test-Path $testLocation) {
+        Write-Host "Cleaning up masquerading test files..."
+        
+        # List files before removal
+        $testFiles = Get-ChildItem $testLocation
+        Write-Host "Removing $($testFiles.Count) test files:"
+        $testFiles | ForEach-Object { Write-Host "  - $($_.Name)" }
+        
+        Remove-Item -Path $testLocation -Recurse -Force
+        Write-Host "Removed test directory: $testLocation"
+      }
+      
+      # Remove registry entries
+      try {
+        $regPath = "HKCU:\Software\BYOVDMasqueradeTest"
+        if (Test-Path $regPath) {
+          Remove-Item -Path $regPath -Recurse -Force
+          Write-Host "Removed registry test entries: $regPath"
+        }
+      } catch {
+        Write-Host "Registry cleanup failed: $($_.Exception.Message)"
+      }
+      
+      Write-Host "Driver masquerading simulation cleanup completed"
+    name: powershell
+    elevation_required: false

@@ -1,0 +1,239 @@
+attack_technique: T1059.005
+display_name: BYOVD - VBS Driver Loading Execution
+atomic_tests:
+- name: VBS Script Driver Loading Simulation
+  auto_generated_guid: e8f9a1b2-c3d4-5678-90ab-cdef12345678
+  description: |
+    Simulates using VBS scripts to load and install vulnerable drivers through Windows Script Host.
+    Based on Lazarus Group ClickFake campaigns and SCATTERED SPIDER techniques.
+    Demonstrates T1059.005 - Command and Scripting Interpreter: Visual Basic execution.
+  supported_platforms:
+  - windows
+  input_arguments:
+    vbs_script_path:
+      description: Path to the VBS driver loader script
+      type: string
+      default: "%TEMP%\nvidiadrivers\update.vbs"
+    driver_file_path:
+      description: Path to the vulnerable driver file
+      type: string
+      default: "%TEMP%\nvidiadrivers\iqvw64.sys"
+    execution_method:
+      description: Method to execute VBS script (wscript or cscript)
+      type: string
+      default: wscript
+    simulation_mode:
+      description: Run in safe simulation mode
+      type: boolean
+      default: true
+  dependency_executor_name: powershell
+  dependencies:
+  - description: VBS script must exist
+    prereq_command: |
+      $vbsPath = [Environment]::ExpandEnvironmentVariables("#{vbs_script_path}")
+      Test-Path $vbsPath
+    get_prereq_command: |
+      # Create VBS driver loader script
+      $vbsPath = [Environment]::ExpandEnvironmentVariables("#{vbs_script_path}")
+      $vbsDir = Split-Path $vbsPath -Parent
+      
+      if (-not (Test-Path $vbsDir)) {
+        New-Item -Path $vbsDir -ItemType Directory -Force
+      }
+      
+      $vbsContent = @'
+' BYOVD VBS Driver Loader Test
+Option Explicit
+
+Dim objShell, objFSO, strDriverPath, strLogFile
+Set objShell = CreateObject("WScript.Shell")
+Set objFSO = CreateObject("Scripting.FileSystemObject")
+
+strDriverPath = objShell.ExpandEnvironmentStrings("#{driver_file_path}")
+strLogFile = objShell.ExpandEnvironmentStrings("%TEMP%") & "\vbs_driver_test.log"
+
+Sub Main()
+    LogMessage "VBS Driver Loading Simulation Started"
+    LogMessage "Target Driver: " & strDriverPath
+    
+    ' Check if running as admin
+    If IsAdmin() Then
+        LogMessage "Administrative privileges detected"
+        SimulateDriverInstallation()
+    Else
+        LogMessage "Not running as administrator - simulation only"
+    End If
+    
+    ' Simulate post-loading activities
+    SimulatePostExploitation()
+    
+    LogMessage "VBS Driver Loading Simulation Completed"
+    WScript.Echo "BYOVD VBS simulation completed - check log: " & strLogFile
+End Sub
+
+Function IsAdmin()
+    On Error Resume Next
+    Dim objFile
+    Set objFile = objFSO.CreateTextFile(objShell.ExpandEnvironmentStrings("%SYSTEMROOT%") & "\admin_test.tmp")
+    If Err.Number = 0 Then
+        objFile.Close
+        objFSO.DeleteFile objShell.ExpandEnvironmentStrings("%SYSTEMROOT%") & "\admin_test.tmp"
+        IsAdmin = True
+    Else
+        IsAdmin = False
+    End If
+    On Error Goto 0
+End Function
+
+Sub SimulateDriverInstallation()
+    LogMessage "Simulating driver service creation..."
+    
+    Dim strServiceName, strCommand
+    strServiceName = "VBSTestDriver"
+    strCommand = "sc create " & strServiceName & " binPath= """ & strDriverPath & """ type= kernel start= demand"
+    
+    LogMessage "Command: " & strCommand
+    objShell.Run "cmd.exe /c " & strCommand, 0, True
+    
+    ' Cleanup immediately
+    objShell.Run "cmd.exe /c sc delete " & strServiceName, 0, True
+    LogMessage "Test service cleaned up"
+End Sub
+
+Sub SimulatePostExploitation()
+    LogMessage "Simulating post-exploitation activities..."
+    LogMessage "- Security process enumeration"
+    LogMessage "- Registry persistence creation"
+    LogMessage "- Callback removal simulation"
+    LogMessage "- ETW disruption simulation"
+    
+    ' Create test registry entry
+    objShell.RegWrite "HKCU\Software\VBSBYOVDTest\ExecutionTime", Now(), "REG_SZ"
+    LogMessage "Registry persistence entry created"
+End Sub
+
+Sub LogMessage(strMessage)
+    Dim objLogFile
+    Set objLogFile = objFSO.OpenTextFile(strLogFile, 8, True)
+    objLogFile.WriteLine FormatDateTime(Now(), 0) & " - " & strMessage
+    objLogFile.Close
+End Sub
+
+Call Main()
+'@
+      
+      $vbsContent | Out-File -FilePath $vbsPath -Encoding ASCII
+      Write-Host "VBS driver loader script created: $vbsPath"
+  - description: Mock driver file should exist
+    prereq_command: |
+      $driverPath = [Environment]::ExpandEnvironmentVariables("#{driver_file_path}")
+      Test-Path $driverPath
+    get_prereq_command: |
+      # Create mock driver file
+      $driverPath = [Environment]::ExpandEnvironmentVariables("#{driver_file_path}")
+      $driverDir = Split-Path $driverPath -Parent
+      
+      if (-not (Test-Path $driverDir)) {
+        New-Item -Path $driverDir -ItemType Directory -Force
+      }
+      
+      $mockDriverContent = @"
+MOCK VULNERABLE DRIVER - VBS Test
+Simulates: iqvw64.sys (CVE-2015-2291)
+Created: $(Get-Date)
+Purpose: VBS execution testing
+
+This mock driver simulates the vulnerable Intel Ethernet driver
+commonly used in BYOVD attacks via VBS script execution.
+"@
+      
+      Set-Content -Path $driverPath -Value $mockDriverContent
+      Write-Host "Mock driver created: $driverPath"
+  executor:
+    command: |
+      # Execute VBS script with specified method
+      $vbsPath = [Environment]::ExpandEnvironmentVariables("#{vbs_script_path}")
+      $executionMethod = "#{execution_method}"
+      
+      if ("#{simulation_mode}" -eq "true") {
+        Write-Host "=== BYOVD VBS Driver Loading Simulation ==="
+        Write-Host "Technique: T1059.005 - Command and Scripting Interpreter: Visual Basic"
+        Write-Host "Script: $vbsPath"
+        Write-Host "Execution Method: $executionMethod"
+        
+        # Execute the VBS script
+        if (Test-Path $vbsPath) {
+          Write-Host "Executing VBS driver loader..."
+          
+          if ($executionMethod -eq "wscript") {
+            Start-Process "wscript.exe" -ArgumentList "`"$vbsPath`"" -Wait -WindowStyle Hidden
+          } else {
+            Start-Process "cscript.exe" -ArgumentList "`"$vbsPath`"" -Wait -NoNewWindow
+          }
+          
+          Write-Host "VBS execution completed"
+          
+          # Check for artifacts
+          $logFile = "$env:TEMP\vbs_driver_test.log"
+          if (Test-Path $logFile) {
+            Write-Host "VBS execution log created: $logFile"
+            Write-Host "Last 5 log entries:"
+            Get-Content $logFile | Select-Object -Last 5 | ForEach-Object { Write-Host "  $_" }
+          }
+          
+          # Log the event
+          try {
+            New-EventLog -LogName Application -Source "BYOVD-Test" -ErrorAction SilentlyContinue
+          } catch {}
+          Write-EventLog -LogName Application -Source "BYOVD-Test" -EventId 3001 -EntryType Information -Message "BYOVD VBS driver loading simulation executed via $executionMethod"
+          
+        } else {
+          Write-Host "ERROR: VBS script not found: $vbsPath"
+          exit 1
+        }
+        
+        Write-Host "=== VBS Simulation Summary ==="
+        Write-Host "Status: Completed successfully"
+        Write-Host "Detection Focus: VBS script execution with driver operations"
+        Write-Host "Artifacts: Registry entries, log files, service creation attempts"
+        
+      } else {
+        Write-Host "ERROR: Non-simulation mode disabled for safety"
+      }
+    cleanup_command: |
+      # Remove VBS artifacts
+      $vbsPath = [Environment]::ExpandEnvironmentVariables("#{vbs_script_path}")
+      $driverPath = [Environment]::ExpandEnvironmentVariables("#{driver_file_path}")
+      $logFile = "$env:TEMP\vbs_driver_test.log"
+      
+      if (Test-Path $vbsPath) {
+        Remove-Item $vbsPath -Force
+        Write-Host "Removed VBS script: $vbsPath"
+      }
+      
+      if (Test-Path $driverPath) {
+        Remove-Item $driverPath -Force
+        Write-Host "Removed mock driver: $driverPath"
+      }
+      
+      if (Test-Path $logFile) {
+        Remove-Item $logFile -Force
+        Write-Host "Removed log file: $logFile"
+      }
+      
+      # Remove registry entries
+      try {
+        Remove-Item "HKCU:\Software\VBSBYOVDTest" -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Host "Removed registry test entries"
+      } catch {}
+      
+      # Clean up directory if empty
+      $vbsDir = Split-Path $vbsPath -Parent
+      if ((Test-Path $vbsDir) -and ((Get-ChildItem $vbsDir).Count -eq 0)) {
+        Remove-Item $vbsDir -Force
+        Write-Host "Removed empty directory: $vbsDir"
+      }
+      
+      Write-Host "VBS driver loading simulation cleanup completed"
+    name: powershell
+    elevation_required: false

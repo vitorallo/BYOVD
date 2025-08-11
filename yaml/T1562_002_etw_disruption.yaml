@@ -1,0 +1,133 @@
+attack_technique: T1562.002
+display_name: BYOVD - ETW Disruption
+atomic_tests:
+- name: Simulate ETW Provider Disruption
+  auto_generated_guid: 8f7e6d5c-4b3a-2109-8765-432109876543
+  description: |
+    Simulates disrupting Event Tracing for Windows (ETW) providers
+    commonly performed by malicious drivers to evade detection.
+    Mimics kernel-level callback removal techniques used in BYOVD attacks.
+  supported_platforms:
+  - windows
+  input_arguments:
+    target_provider:
+      description: ETW provider to target for disruption simulation
+      type: string
+      default: Microsoft-Windows-Threat-Intelligence
+    simulation_mode:
+      description: Run in safe simulation mode
+      type: boolean
+      default: true
+  dependency_executor_name: powershell
+  dependencies:
+  - description: Windows PowerShell should be available
+    prereq_command: |
+      Get-Command Get-EtwTraceProvider -ErrorAction SilentlyContinue
+    get_prereq_command: |
+      Write-Host "ETW cmdlets should be available in Windows PowerShell"
+      Write-Host "If not available, ensure Windows Management Framework is installed"
+  executor:
+    command: |
+      Write-Host "=== BYOVD ETW Provider Disruption Simulation ==="
+      
+      if ("#{simulation_mode}" -eq "true") {
+        Write-Host "Running in SAFE SIMULATION MODE - no actual ETW disruption"
+        
+        # Enumerate current ETW sessions (reconnaissance phase)
+        Write-Host ""
+        Write-Host "[1] ETW Reconnaissance Phase:"
+        Write-Host "Enumerating active ETW trace sessions..."
+        
+        try {
+          $sessions = logman query -ets
+          Write-Host "Active ETW sessions detected:"
+          $sessions | ForEach-Object { 
+            if ($_ -match "^\s*(\S+)\s+") { 
+              Write-Host "  - $($matches[1])" 
+            } 
+          }
+        } catch {
+          Write-Host "  - Unable to enumerate ETW sessions (expected in some environments)"
+        }
+        
+        # Simulate provider enumeration
+        Write-Host ""
+        Write-Host "[2] ETW Provider Analysis:"
+        Write-Host "Target Provider: #{target_provider}"
+        
+        try {
+          $provider = Get-EtwTraceProvider -Name "#{target_provider}" -ErrorAction SilentlyContinue
+          if ($provider) {
+            Write-Host "  - Provider GUID: $($provider.Guid)"
+            Write-Host "  - Provider Status: Active"
+          } else {
+            Write-Host "  - Provider not found or not active"
+          }
+        } catch {
+          Write-Host "  - Provider enumeration failed (simulating restricted access)"
+        }
+        
+        # Simulate kernel-level disruption techniques
+        Write-Host ""
+        Write-Host "[3] Simulating Kernel-Level ETW Disruption:"
+        Write-Host "  - Locating ETW callback registration structures"
+        Write-Host "  - Identifying target provider callback functions"
+        Write-Host "  - Simulating callback removal from kernel structures"
+        Write-Host "  - Patching ETW dispatcher to block events"
+        
+        # Simulate specific disruption methods
+        Write-Host ""
+        Write-Host "[4] Disruption Methods Simulated:"
+        Write-Host "  Method 1: ETW callback unregistration"
+        Write-Host "  Method 2: Provider GUID manipulation"
+        Write-Host "  Method 3: Event filtering bypass"
+        Write-Host "  Method 4: Kernel patch protection bypass"
+        
+        # Test ETW functionality after "disruption"
+        Write-Host ""
+        Write-Host "[5] Testing ETW Functionality Post-Disruption:"
+        
+        # Create test event to verify ETW is still working (since we're simulating)
+        try {
+          New-EventLog -LogName Application -Source "BYOVD-Test" -ErrorAction SilentlyContinue
+        } catch {}
+        
+        Write-EventLog -LogName Application -Source "BYOVD-Test" -EventId 1005 -EntryType Information -Message "BYOVD ETW Disruption Test Event - If visible, ETW is functional"
+        Write-Host "  - Test event generated (EventID 1005)"
+        Write-Host "  - In real attack: This event would be blocked"
+        Write-Host "  - Current status: ETW functional (simulation mode)"
+        
+        # Simulate persistence mechanisms
+        Write-Host ""
+        Write-Host "[6] Simulating Persistence Mechanisms:"
+        Write-Host "  - Installing kernel callback hooks"
+        Write-Host "  - Modifying system service dispatch tables"
+        Write-Host "  - Establishing watchdog processes"
+        
+        # Detection evasion simulation
+        Write-Host ""
+        Write-Host "[7] Detection Evasion Techniques:"
+        Write-Host "  - Randomizing disruption timing"
+        Write-Host "  - Selective provider targeting"
+        Write-Host "  - Anti-forensics measures"
+        
+        Write-Host ""
+        Write-Host "=== ETW Disruption Simulation Summary ==="
+        Write-Host "Technique: T1562.002 - Impair Defenses: Disable Windows Event Logging"
+        Write-Host "Method: Kernel-level ETW callback manipulation"
+        Write-Host "Target Provider: #{target_provider}"
+        Write-Host "Status: Simulation completed (ETW remains functional)"
+        Write-Host "Detection: Monitor for ETW session modifications, callback changes"
+        Write-Host "Mitigation: Protected Process Light (PPL), kernel CFI, driver signing"
+        
+      } else {
+        Write-Host "ERROR: Actual ETW disruption disabled for safety"
+        Write-Host "Real ETW disruption would blind security monitoring"
+        Write-Host "This test only operates in simulation mode"
+      }
+    cleanup_command: |
+      Write-Host "ETW disruption simulation completed"
+      Write-Host "No cleanup required - ETW functionality was not actually modified"
+      Write-Host "Test events remain in Application log for analysis"
+    name: powershell
+    elevation_required: true

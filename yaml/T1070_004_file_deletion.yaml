@@ -1,0 +1,437 @@
+attack_technique: T1070.004
+display_name: BYOVD - File Deletion and Artifact Removal
+atomic_tests:
+- name: Driver Installation Artifact Cleanup
+  auto_generated_guid: a9b8c7d6-e5f4-3210-9876-543210fedcba
+  description: |
+    Simulates deleting driver installation artifacts and logs to remove evidence of BYOVD attacks.
+    Demonstrates T1070.004 - Indicator Removal on Host: File Deletion.
+    Based on cleanup techniques used by multiple threat actors after driver exploitation.
+  supported_platforms:
+  - windows
+  input_arguments:
+    artifacts_location:
+      description: Location containing BYOVD artifacts to clean up
+      type: string
+      default: "%TEMP%\byovd_artifacts"
+    log_files_pattern:
+      description: Pattern for log files to delete
+      type: string
+      default: "*byovd*.log"
+    driver_files_pattern:
+      description: Pattern for driver files to delete
+      type: string
+      default: "*.sys"
+    cleanup_method:
+      description: Method used for file deletion (del, sdelete, cipher)
+      type: string
+      default: "del"
+    secure_deletion:
+      description: Use secure deletion techniques
+      type: boolean
+      default: false
+    simulation_mode:
+      description: Run in safe simulation mode
+      type: boolean
+      default: true
+  dependency_executor_name: powershell
+  dependencies:
+  - description: Create test artifacts for deletion simulation
+    prereq_command: |
+      $artifactsPath = [Environment]::ExpandEnvironmentVariables("#{artifacts_location}")
+      Test-Path $artifactsPath
+    get_prereq_command: |
+      # Create realistic BYOVD artifacts for deletion testing
+      $artifactsPath = [Environment]::ExpandEnvironmentVariables("#{artifacts_location}")
+      if (-not (Test-Path $artifactsPath)) {
+        New-Item -Path $artifactsPath -ItemType Directory -Force
+      }
+      
+      Write-Host "Creating BYOVD artifacts for deletion simulation..."
+      
+      # Create mock driver files
+      $driverArtifacts = @(
+        "iqvw64.sys",
+        "smuol.sys", 
+        "viragt64.sys",
+        "dbutil_2_3.sys",
+        "test_driver.sys"
+      )
+      
+      foreach ($driver in $driverArtifacts) {
+        $driverPath = Join-Path $artifactsPath $driver
+        $content = @"
+MOCK DRIVER ARTIFACT: $driver
+Created: $(Get-Date)
+Purpose: BYOVD deletion simulation
+Original CVE: Various (CVE-2015-2291, etc.)
+
+This file simulates a vulnerable driver that would be
+deleted by threat actors to remove evidence of BYOVD attacks.
+"@
+        Set-Content -Path $driverPath -Value $content
+      }
+      
+      # Create log files
+      $logArtifacts = @(
+        "byovd_install.log",
+        "driver_setup.log", 
+        "exploit_output.log",
+        "post_exploit.log",
+        "cleanup_trace.log"
+      )
+      
+      foreach ($log in $logArtifacts) {
+        $logPath = Join-Path $artifactsPath $log
+        $logContent = @"
+BYOVD LOG ARTIFACT: $log
+========================
+Timestamp: $(Get-Date)
+Operation: Simulated BYOVD attack activity
+Status: Test artifact for deletion simulation
+
+Log entries:
+[INFO] Driver installation started
+[INFO] Vulnerability exploitation successful  
+[INFO] Kernel access achieved
+[WARNING] Security process termination
+[INFO] Persistence mechanism installed
+[INFO] Credential dumping completed
+[INFO] Attack objectives achieved
+[CLEANUP] Removing evidence traces
+"@
+        Set-Content -Path $logPath -Value $logContent
+      }
+      
+      # Create registry backup files
+      $regArtifacts = @(
+        "registry_backup.reg",
+        "original_settings.reg",
+        "dse_bypass_backup.reg"
+      )
+      
+      foreach ($reg in $regArtifacts) {
+        $regPath = Join-Path $artifactsPath $reg
+        $regContent = @"
+Windows Registry Editor Version 5.00
+
+; BYOVD Registry Backup Artifact: $reg
+; Created: $(Get-Date)
+; Purpose: Backup before registry modifications
+
+[HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\CI]
+"TestSigning"=dword:00000000
+"VulnerableDriverBlocklistEnable"=dword:00000001
+"RequireDriverSignatureEnforcement"=dword:00000001
+"@
+        Set-Content -Path $regPath -Value $regContent
+      }
+      
+      # Create memory dump artifacts
+      $memArtifacts = @(
+        "lsass_dump.dmp",
+        "kernel_memory.dmp",
+        "credential_extract.txt"
+      )
+      
+      foreach ($mem in $memArtifacts) {
+        $memPath = Join-Path $artifactsPath $mem
+        $memContent = @"
+MEMORY ARTIFACT: $mem
+====================
+Created: $(Get-Date)
+Type: Simulated memory dump/extraction
+Size: $(Get-Random -Minimum 1000000 -Maximum 10000000) bytes (simulated)
+
+This file simulates memory dumps or credential extractions
+that would be created during BYOVD attacks and subsequently
+deleted to remove evidence.
+
+WARNING: This is a harmless test file.
+"@
+        Set-Content -Path $memPath -Value $memContent
+      }
+      
+      # Create temporary installation files
+      $tempArtifacts = @(
+        "driver_installer.exe",
+        "setup_temp.tmp",
+        "install_config.ini",
+        "verification.txt"
+      )
+      
+      foreach ($temp in $tempArtifacts) {
+        $tempPath = Join-Path $artifactsPath $temp
+        $tempContent = @"
+TEMPORARY ARTIFACT: $temp
+=========================
+Created: $(Get-Date)
+Purpose: Simulated installation artifact
+Status: Pending deletion
+
+This represents temporary files created during
+BYOVD driver installation that attackers would
+remove to hide their tracks.
+"@
+        Set-Content -Path $tempPath -Value $tempContent
+      }
+      
+      $artifactCount = (Get-ChildItem $artifactsPath).Count
+      Write-Host "Created $artifactCount BYOVD artifacts in: $artifactsPath"
+      Write-Host "Artifacts ready for deletion simulation"
+  executor:
+    command: |
+      if ("#{simulation_mode}" -eq "true") {
+        Write-Host "=== BYOVD File Deletion Simulation ==="
+        Write-Host "Technique: T1070.004 - Indicator Removal on Host: File Deletion"
+        Write-Host "Simulating cleanup of BYOVD attack artifacts..."
+        
+        $artifactsPath = [Environment]::ExpandEnvironmentVariables("#{artifacts_location}")
+        $logPattern = "#{log_files_pattern}"
+        $driverPattern = "#{driver_files_pattern}"
+        $cleanupMethod = "#{cleanup_method}"
+        $secureDelete = [bool]::Parse("#{secure_deletion}")
+        
+        Write-Host "`nArtifacts location: $artifactsPath"
+        Write-Host "Cleanup method: $cleanupMethod"
+        Write-Host "Secure deletion: $secureDelete"
+        
+        # Pre-deletion inventory
+        Write-Host "`n[1] Pre-Deletion Inventory"
+        if (Test-Path $artifactsPath) {
+          $allFiles = Get-ChildItem $artifactsPath -File
+          Write-Host "Total artifacts found: $($allFiles.Count)"
+          
+          $filesByType = $allFiles | Group-Object Extension
+          Write-Host "Breakdown by type:"
+          foreach ($type in $filesByType) {
+            Write-Host "  $($type.Name): $($type.Count) files"
+          }
+          
+          Write-Host "`nDetailed inventory:"
+          foreach ($file in $allFiles) {
+            $hash = Get-FileHash $file.FullName -Algorithm MD5
+            Write-Host "  $($file.Name) - $($file.Length) bytes - MD5: $($hash.Hash.Substring(0,8))..."
+          }
+        } else {
+          Write-Host "Artifacts directory not found: $artifactsPath"
+          return
+        }
+        
+        # Simulate different deletion methods
+        Write-Host "`n[2] Deletion Method Simulation: $cleanupMethod"
+        
+        $deletedFiles = @()
+        $deletionLog = @()
+        
+        switch ($cleanupMethod) {
+          "del" {
+            Write-Host "Using standard Windows DEL command..."
+            Write-Host "Command pattern: del /f /q `"$artifactsPath\*`""
+            
+            # Simulate selective deletion
+            $targetPatterns = @($logPattern, $driverPattern, "*.tmp", "*.dmp", "*.reg")
+            foreach ($pattern in $targetPatterns) {
+              $matchingFiles = Get-ChildItem $artifactsPath -Filter $pattern -File
+              Write-Host "`nDeleting files matching: $pattern"
+              
+              foreach ($file in $matchingFiles) {
+                Write-Host "  Deleting: $($file.Name)"
+                $deletionLog += "$(Get-Date -Format 'HH:mm:ss') - DEL - $($file.Name) - $($file.Length) bytes"
+                $deletedFiles += $file
+                Remove-Item $file.FullName -Force
+              }
+            }
+          }
+          
+          "sdelete" {
+            Write-Host "Simulating SDelete secure deletion..."
+            Write-Host "Command pattern: sdelete -p 3 -z -s `"$artifactsPath`""
+            
+            $allFiles = Get-ChildItem $artifactsPath -File
+            Write-Host "Secure deletion with 3-pass overwrite:"
+            
+            foreach ($file in $allFiles) {
+              Write-Host "  Secure deleting: $($file.Name)"
+              Write-Host "    Pass 1: Overwriting with 0x00"
+              Write-Host "    Pass 2: Overwriting with 0xFF"  
+              Write-Host "    Pass 3: Overwriting with random data"
+              $deletionLog += "$(Get-Date -Format 'HH:mm:ss') - SDELETE - $($file.Name) - Secure 3-pass"
+              $deletedFiles += $file
+              Remove-Item $file.FullName -Force
+            }
+          }
+          
+          "cipher" {
+            Write-Host "Simulating Windows Cipher secure deletion..."
+            Write-Host "Command: cipher /w:$artifactsPath"
+            
+            $allFiles = Get-ChildItem $artifactsPath -File
+            Write-Host "Using cipher to overwrite free space:"
+            
+            foreach ($file in $allFiles) {
+              Write-Host "  Processing: $($file.Name)"
+              $deletionLog += "$(Get-Date -Format 'HH:mm:ss') - CIPHER - $($file.Name) - Free space overwrite"
+              $deletedFiles += $file
+              Remove-Item $file.FullName -Force
+            }
+            
+            Write-Host "Simulating free space overwrite..."
+            Write-Host "  Writing 0x00 to free space"
+            Write-Host "  Writing 0xFF to free space"
+            Write-Host "  Writing random data to free space"
+          }
+          
+          default {
+            Write-Host "Unknown deletion method: $cleanupMethod"
+            Write-Host "Using standard deletion..."
+            
+            $allFiles = Get-ChildItem $artifactsPath -File
+            foreach ($file in $allFiles) {
+              Write-Host "  Deleting: $($file.Name)"
+              $deletionLog += "$(Get-Date -Format 'HH:mm:ss') - DEFAULT - $($file.Name)"
+              $deletedFiles += $file
+              Remove-Item $file.FullName -Force
+            }
+          }
+        }
+        
+        Write-Host "`n[3] Timeline Reconstruction Resistance"
+        Write-Host "Simulating anti-forensics techniques..."
+        
+        # Simulate timestamp manipulation
+        Write-Host "Timestamp manipulation simulation:"
+        Write-Host "  - Modifying file creation times"
+        Write-Host "  - Adjusting last access times"
+        Write-Host "  - Changing last write times"
+        
+        # Simulate log clearing
+        Write-Host "`nSystem log cleaning simulation:"
+        $systemLogs = @(
+          "Application",
+          "System", 
+          "Security",
+          "Microsoft-Windows-Sysmon/Operational"
+        )
+        
+        foreach ($log in $systemLogs) {
+          Write-Host "  Simulating: wevtutil cl $log"
+          Write-Host "    Real impact: Clear $log event log"
+        }
+        
+        # Simulate registry cleaning
+        Write-Host "`nRegistry cleanup simulation:"
+        $regPaths = @(
+          "HKLM\SYSTEM\CurrentControlSet\Services\*driver*",
+          "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run",
+          "HKLM\SYSTEM\CurrentControlSet\Control\CI"
+        )
+        
+        foreach ($regPath in $regPaths) {
+          Write-Host "  Cleaning: $regPath"
+          Write-Host "    Impact: Remove driver installation traces"
+        }
+        
+        Write-Host "`n[4] Free Space Wiping Simulation"
+        if ($secureDelete) {
+          Write-Host "Performing free space wiping to prevent file recovery..."
+          Write-Host "  Method: Multiple pass overwrite"
+          Write-Host "  Passes: 3 (0x00, 0xFF, Random)"
+          Write-Host "  Target: All free space in volume"
+          Write-Host "  Duration: Several hours (simulated)"
+        } else {
+          Write-Host "Standard deletion - files recoverable with forensic tools"
+          Write-Host "Recommendation: Use secure deletion for better anti-forensics"
+        }
+        
+        Write-Host "`n[5] Post-Deletion Verification"
+        $remainingFiles = Get-ChildItem $artifactsPath -File -ErrorAction SilentlyContinue
+        Write-Host "Remaining files: $($remainingFiles.Count)"
+        
+        if ($remainingFiles.Count -eq 0) {
+          Write-Host "✓ All target artifacts successfully deleted"
+        } else {
+          Write-Host "⚠ Some files remain:"
+          foreach ($file in $remainingFiles) {
+            Write-Host "  - $($file.Name)"
+          }
+        }
+        
+        Write-Host "`n[6] Forensic Recovery Simulation"
+        Write-Host "Testing file recovery possibilities..."
+        Write-Host "  Standard deletion: Files recoverable with tools like PhotoRec"
+        Write-Host "  Secure deletion: Recovery significantly more difficult"
+        Write-Host "  Free space wiping: Prevents recovery of deleted fragments"
+        
+        # Create deletion summary
+        $summaryPath = Join-Path $artifactsPath "deletion_summary.txt"
+        $summaryContent = @"
+BYOVD Artifact Deletion Summary
+===============================
+Generated: $(Get-Date)
+Method: $cleanupMethod
+Secure Deletion: $secureDelete
+
+Files Deleted: $($deletedFiles.Count)
+Deletion Timeline:
+$($deletionLog -join "`n")
+
+Anti-Forensics Techniques Applied:
+- File content overwriting: $secureDelete
+- Free space wiping: $secureDelete
+- Timestamp manipulation: Simulated
+- System log clearing: Simulated
+- Registry cleanup: Simulated
+
+Recovery Difficulty: $(if ($secureDelete) { "High" } else { "Low-Medium" })
+
+Detection Opportunities:
+- File deletion monitoring (Sysmon Event ID 23)
+- Process monitoring for deletion tools
+- Timeline gaps in system activity
+- Registry modification monitoring
+- Volume shadow copy analysis
+- Free space analysis for overwrite patterns
+"@
+        Set-Content -Path $summaryPath -Value $summaryContent
+        Write-Host "Deletion summary created: $summaryPath"
+        
+        # Log the event
+        try {
+          New-EventLog -LogName Application -Source "BYOVD-Test" -ErrorAction SilentlyContinue
+        } catch {}
+        Write-EventLog -LogName Application -Source "BYOVD-Test" -EventId 6001 -EntryType Warning -Message "BYOVD file deletion simulation completed - $($deletedFiles.Count) artifacts deleted using $cleanupMethod method"
+        
+        Write-Host "`n=== File Deletion Simulation Summary ==="
+        Write-Host "Deletion method: $cleanupMethod"
+        Write-Host "Files processed: $($deletedFiles.Count)"
+        Write-Host "Secure deletion: $secureDelete"
+        Write-Host "Anti-forensics: Multiple techniques simulated"
+        Write-Host "Detection focus: File deletion monitoring, timeline analysis"
+        Write-Host "Status: Simulation completed successfully"
+        
+      } else {
+        Write-Host "ERROR: Non-simulation mode disabled for safety"
+      }
+    cleanup_command: |
+      # Final cleanup of simulation artifacts
+      $artifactsPath = [Environment]::ExpandEnvironmentVariables("#{artifacts_location}")
+      
+      Write-Host "Performing final cleanup of file deletion simulation..."
+      
+      if (Test-Path $artifactsPath) {
+        # List any remaining files
+        $remainingFiles = Get-ChildItem $artifactsPath -File -ErrorAction SilentlyContinue
+        if ($remainingFiles.Count -gt 0) {
+          Write-Host "Removing $($remainingFiles.Count) remaining simulation files:"
+          $remainingFiles | ForEach-Object { Write-Host "  - $($_.Name)" }
+        }
+        
+        # Remove the entire artifacts directory
+        Remove-Item -Path $artifactsPath -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Host "Removed artifacts directory: $artifactsPath"
+      }
+      
+      Write-Host "File deletion simulation cleanup completed"
+    name: powershell
+    elevation_required: false

@@ -1,0 +1,377 @@
+attack_technique: T1105
+display_name: BYOVD - Ingress Tool Transfer
+atomic_tests:
+- name: Malicious Driver Package Download Simulation
+  auto_generated_guid: c6d7e8f9-a0b1-2345-6789-0abcdef12345
+  description: |
+    Simulates downloading malicious driver packages disguised as legitimate driver updates.
+    Demonstrates T1105 - Ingress Tool Transfer techniques used in BYOVD attacks.
+    Based on Lazarus Group ClickFake campaigns and other threat actor methodologies.
+  supported_platforms:
+  - windows
+  input_arguments:
+    download_url:
+      description: Simulated malicious driver download URL (local file for safety)
+      type: string
+      default: "file:///C:/temp/test_driver_package.zip"
+    download_location:
+      description: Location to download the driver package
+      type: string
+      default: "%TEMP%\driver_downloads"
+    driver_package_name:
+      description: Name of the downloaded driver package
+      type: string
+      default: "nvidia_driver_update.zip"
+    download_method:
+      description: Method used for download (curl, powershell, browser)
+      type: string
+      default: "curl"
+    fake_domain:
+      description: Simulated malicious domain for driver downloads
+      type: string
+      default: "smartdriverfix.cloud"
+    simulation_mode:
+      description: Run in safe simulation mode using local files
+      type: boolean
+      default: true
+  dependency_executor_name: powershell
+  dependencies:
+  - description: Download directory should exist
+    prereq_command: |
+      $downloadPath = [Environment]::ExpandEnvironmentVariables("#{download_location}")
+      Test-Path $downloadPath
+    get_prereq_command: |
+      $downloadPath = [Environment]::ExpandEnvironmentVariables("#{download_location}")
+      New-Item -Path $downloadPath -ItemType Directory -Force
+      Write-Host "Created download directory: $downloadPath"
+  - description: Create test driver package for simulation
+    prereq_command: |
+      Test-Path "C:\temp\test_driver_package.zip"
+    get_prereq_command: |
+      # Create realistic driver package for testing
+      $tempDir = "C:\temp\fake_driver_package"
+      $zipPath = "C:\temp\test_driver_package.zip"
+      
+      if (-not (Test-Path "C:\temp")) {
+        New-Item -Path "C:\temp" -ItemType Directory -Force
+      }
+      
+      if (-not (Test-Path $tempDir)) {
+        New-Item -Path $tempDir -ItemType Directory -Force
+      }
+      
+      # Create fake driver files
+      $fakeDriver = @"
+FAKE NVIDIA DRIVER UPDATE PACKAGE
+==================================
+Version: 496.13 (Fake)
+Date: $(Get-Date)
+Purpose: BYOVD Attack Simulation
+
+CONTAINS SIMULATED MALICIOUS COMPONENTS:
+- Vulnerable driver: nvlddmkm.sys (fake)
+- Loader script: install.vbs
+- PowerShell helper: setup.ps1
+- Configuration: driver.ini
+
+WARNING: This is a test package for security research only!
+"@
+      
+      Set-Content -Path "$tempDir\nvlddmkm.sys" -Value $fakeDriver
+      
+      # Create fake installer VBS
+      $fakeVBS = @'
+' Fake NVIDIA Driver Installer
+WScript.Echo "NVIDIA Driver Update Installer (FAKE)"
+WScript.Echo "This is a harmless test file"
+CreateObject("WScript.Shell").Run "cmd.exe /c echo Fake driver installation > %TEMP%\fake_install.log", 0, True
+'@
+      Set-Content -Path "$tempDir\install.vbs" -Value $fakeVBS
+      
+      # Create fake PowerShell script
+      $fakePS = @'
+# Fake NVIDIA Driver Setup
+Write-Host "NVIDIA Driver Setup (Test Version)"
+Write-Host "This is a harmless simulation script"
+New-Item -Path "$env:TEMP\fake_driver_install.txt" -ItemType File -Force
+'@
+      Set-Content -Path "$tempDir\setup.ps1" -Value $fakePS
+      
+      # Create configuration file
+      $fakeConfig = @"
+[DriverInfo]
+Name=NVIDIA Display Driver
+Version=496.13
+Company=NVIDIA Corporation (FAKE)
+Type=Simulation
+
+[InstallOptions]
+SilentInstall=true
+SkipReboot=false
+CreateBackup=true
+
+[TestMode]
+Simulation=true
+Purpose=BYOVD Testing
+"@
+      Set-Content -Path "$tempDir\driver.ini" -Value $fakeConfig
+      
+      # Create ZIP package
+      try {
+        Compress-Archive -Path "$tempDir\*" -DestinationPath $zipPath -Force
+        Write-Host "Created test driver package: $zipPath"
+        
+        # Cleanup temp directory
+        Remove-Item $tempDir -Recurse -Force
+      } catch {
+        Write-Host "Failed to create ZIP package: $($_.Exception.Message)"
+      }
+  - description: Curl should be available for download simulation
+    prereq_command: |
+      Get-Command curl.exe -ErrorAction SilentlyContinue
+    get_prereq_command: |
+      Write-Host "curl.exe should be available in Windows 10/11 by default"
+      Write-Host "Alternative: PowerShell Invoke-WebRequest will be used"
+  executor:
+    command: |
+      if ("#{simulation_mode}" -eq "true") {
+        Write-Host "=== BYOVD Ingress Tool Transfer Simulation ==="
+        Write-Host "Technique: T1105 - Ingress Tool Transfer"
+        Write-Host "Simulating malicious driver package download..."
+        
+        $downloadLocation = [Environment]::ExpandEnvironmentVariables("#{download_location}")
+        $packageName = "#{driver_package_name}"
+        $downloadMethod = "#{download_method}"
+        $fakeDomain = "#{fake_domain}"
+        $downloadUrl = "#{download_url}"
+        
+        $targetFile = Join-Path $downloadLocation $packageName
+        
+        Write-Host "`n[1] Pre-Download Reconnaissance"
+        Write-Host "Simulating target system analysis..."
+        Write-Host "- OS Version: $([Environment]::OSVersion.VersionString)"
+        Write-Host "- Architecture: $([Environment]::GetEnvironmentVariable('PROCESSOR_ARCHITECTURE'))"
+        Write-Host "- User Context: $([Environment]::UserName)"
+        Write-Host "- Download Location: $downloadLocation"
+        
+        Write-Host "`n[2] DNS Resolution Simulation"
+        Write-Host "Simulated DNS queries for malicious domains:"
+        $maliciousDomains = @(
+          "$fakeDomain",
+          "driverupdate.com",
+          "nvidia-drivers.net", 
+          "intel-update.org",
+          "microsoft-drivers.info"
+        )
+        
+        foreach ($domain in $maliciousDomains) {
+          Write-Host "  Resolving: $domain"
+          Write-Host "    Real attack: Would resolve to attacker infrastructure"
+        }
+        
+        Write-Host "`n[3] Download Execution"
+        Write-Host "Download method: $downloadMethod"
+        Write-Host "Source URL: $downloadUrl"
+        Write-Host "Target file: $targetFile"
+        
+        # Simulate different download methods
+        switch ($downloadMethod) {
+          "curl" {
+            Write-Host "`nSimulating curl download..."
+            Write-Host "Command: curl -k -o `"$targetFile`" `"$downloadUrl`""
+            
+            # Use PowerShell to copy local file (simulating download)
+            if (Test-Path "C:\temp\test_driver_package.zip") {
+              Copy-Item "C:\temp\test_driver_package.zip" $targetFile -Force
+              Write-Host "✓ Driver package 'downloaded' successfully"
+            } else {
+              Write-Host "✗ Source package not available"
+              return
+            }
+          }
+          
+          "powershell" {
+            Write-Host "`nSimulating PowerShell download..."
+            Write-Host "Command: Invoke-WebRequest -Uri `"$downloadUrl`" -OutFile `"$targetFile`""
+            
+            # Copy local file (simulating download)
+            if (Test-Path "C:\temp\test_driver_package.zip") {
+              Copy-Item "C:\temp\test_driver_package.zip" $targetFile -Force
+              Write-Host "✓ Driver package downloaded via PowerShell"
+            }
+          }
+          
+          "browser" {
+            Write-Host "`nSimulating browser download..."
+            Write-Host "User action: Clicking download link in browser"
+            Write-Host "Default download location: $env:USERPROFILE\Downloads"
+            
+            # Simulate browser download to Downloads folder
+            $browserDownload = "$env:USERPROFILE\Downloads\$packageName"
+            if (Test-Path "C:\temp\test_driver_package.zip") {
+              Copy-Item "C:\temp\test_driver_package.zip" $browserDownload -Force
+              Write-Host "✓ File downloaded to browser default location"
+              
+              # Move to target location
+              Move-Item $browserDownload $targetFile -Force
+              Write-Host "✓ File moved to: $targetFile"
+            }
+          }
+        }
+        
+        Write-Host "`n[4] Post-Download Analysis"
+        if (Test-Path $targetFile) {
+          $fileInfo = Get-Item $targetFile
+          $hash = Get-FileHash $targetFile -Algorithm SHA256
+          
+          Write-Host "Downloaded file analysis:"
+          Write-Host "  Name: $($fileInfo.Name)"
+          Write-Host "  Size: $($fileInfo.Length) bytes"
+          Write-Host "  Created: $($fileInfo.CreationTime)"
+          Write-Host "  SHA256: $($hash.Hash)"
+          
+          # Simulate file reputation check
+          Write-Host "`n[5] File Reputation Simulation"
+          Write-Host "Checking file reputation (simulated)..."
+          Write-Host "  VirusTotal: Unknown file (in real attack)"
+          Write-Host "  Microsoft Defender: Not detected (initially)"
+          Write-Host "  File age: Newly created (suspicious)"
+          
+          # Extract and analyze contents
+          Write-Host "`n[6] Package Contents Analysis"
+          try {
+            $extractPath = Join-Path $downloadLocation "extracted"
+            Expand-Archive -Path $targetFile -DestinationPath $extractPath -Force
+            
+            Write-Host "Package contents:"
+            $extractedFiles = Get-ChildItem $extractPath -Recurse
+            foreach ($file in $extractedFiles) {
+              Write-Host "  - $($file.Name) ($($file.Length) bytes)"
+              
+              # Analyze specific file types
+              if ($file.Extension -eq ".vbs") {
+                Write-Host "    VBS Script detected - potential execution risk"
+              }
+              elseif ($file.Extension -eq ".sys") {
+                Write-Host "    Driver file detected - BYOVD potential"
+              }
+              elseif ($file.Extension -eq ".ps1") {
+                Write-Host "    PowerShell script - execution risk"
+              }
+            }
+            
+            Write-Host "`n[7] Network Traffic Simulation"
+            Write-Host "Simulated network indicators:"
+            Write-Host "  DNS Query: $fakeDomain"
+            Write-Host "  HTTP(S) Request: GET /driver-package.zip"
+            Write-Host "  User-Agent: curl/7.83.1 (or PowerShell)"
+            Write-Host "  Download Size: $($fileInfo.Length) bytes"
+            Write-Host "  Connection: TLS 1.2/1.3"
+            
+            Write-Host "`n[8] Timeline Correlation"
+            Write-Host "Attack timeline simulation:"
+            Write-Host "  T+0min: Initial phishing/social engineering"
+            Write-Host "  T+2min: User clicks download link"
+            Write-Host "  T+3min: DNS resolution for malicious domain"
+            Write-Host "  T+4min: HTTP(S) download begins"
+            Write-Host "  T+5min: Package download completes"
+            Write-Host "  T+6min: Package extraction (next stage)"
+            
+            # Create IOC file
+            $iocFile = Join-Path $downloadLocation "download_iocs.txt"
+            $iocContent = @"
+BYOVD Ingress Tool Transfer - IOCs
+==================================
+Generated: $(Get-Date)
+
+File IOCs:
+- Filename: $packageName
+- SHA256: $($hash.Hash)
+- Size: $($fileInfo.Length) bytes
+- Path: $targetFile
+
+Network IOCs:
+- Domain: $fakeDomain
+- URL: $downloadUrl
+- User-Agent patterns: curl/, PowerShell/
+
+Behavioral IOCs:
+- Suspicious driver package downloads
+- Downloads to TEMP directories
+- Multiple file downloads in sequence
+- Downloads followed by immediate extraction
+
+Detection Opportunities:
+- Network monitoring for driver-themed domains
+- File system monitoring for ZIP/archive downloads
+- DNS monitoring for suspicious driver domains
+- Browser/download history analysis
+- Timeline correlation with other attack activities
+"@
+            Set-Content -Path $iocFile -Value $iocContent
+            Write-Host "IOCs documented: $iocFile"
+            
+          } catch {
+            Write-Host "Package extraction failed: $($_.Exception.Message)"
+          }
+        }
+        
+        # Log the event
+        try {
+          New-EventLog -LogName Application -Source "BYOVD-Test" -ErrorAction SilentlyContinue
+        } catch {}
+        Write-EventLog -LogName Application -Source "BYOVD-Test" -EventId 5001 -EntryType Warning -Message "BYOVD ingress tool transfer simulation - driver package download via $downloadMethod"
+        
+        Write-Host "`n=== Ingress Tool Transfer Summary ==="
+        Write-Host "Download method: $downloadMethod"
+        Write-Host "Package size: $($fileInfo.Length) bytes"
+        Write-Host "Detection focus: Network monitoring, file downloads, DNS queries"
+        Write-Host "Next stage: Package extraction and execution"
+        Write-Host "Status: Simulation completed successfully"
+        
+      } else {
+        Write-Host "ERROR: Non-simulation mode disabled for safety"
+      }
+    cleanup_command: |
+      # Remove download simulation artifacts
+      $downloadLocation = [Environment]::ExpandEnvironmentVariables("#{download_location}")
+      $packageName = "#{driver_package_name}"
+      $targetFile = Join-Path $downloadLocation $packageName
+      
+      Write-Host "Cleaning up ingress tool transfer simulation..."
+      
+      # Remove downloaded package
+      if (Test-Path $targetFile) {
+        Remove-Item $targetFile -Force
+        Write-Host "Removed downloaded package: $targetFile"
+      }
+      
+      # Remove extracted contents
+      $extractPath = Join-Path $downloadLocation "extracted"
+      if (Test-Path $extractPath) {
+        Remove-Item $extractPath -Recurse -Force
+        Write-Host "Removed extracted contents: $extractPath"
+      }
+      
+      # Remove IOC file
+      $iocFile = Join-Path $downloadLocation "download_iocs.txt"
+      if (Test-Path $iocFile) {
+        Remove-Item $iocFile -Force
+        Write-Host "Removed IOC file: $iocFile"
+      }
+      
+      # Remove test source package
+      if (Test-Path "C:\temp\test_driver_package.zip") {
+        Remove-Item "C:\temp\test_driver_package.zip" -Force
+        Write-Host "Removed test source package"
+      }
+      
+      # Clean up download directory if empty
+      if ((Test-Path $downloadLocation) -and ((Get-ChildItem $downloadLocation).Count -eq 0)) {
+        Remove-Item $downloadLocation -Force
+        Write-Host "Removed empty download directory: $downloadLocation"
+      }
+      
+      Write-Host "Ingress tool transfer simulation cleanup completed"
+    name: powershell
+    elevation_required: false

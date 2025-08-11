@@ -1,0 +1,127 @@
+attack_technique: T1003.001
+display_name: BYOVD - LSASS Memory Access
+atomic_tests:
+- name: Simulate Kernel-Level LSASS Memory Access
+  auto_generated_guid: 9a8b7c6d-5e4f-3210-9876-543210abcdef
+  description: |
+    Simulates accessing LSASS process memory using elevated privileges
+    mimicking kernel-level credential dumping via malicious drivers.
+    Represents techniques used by various APT groups with BYOVD capabilities.
+  supported_platforms:
+  - windows
+  input_arguments:
+    simulation_only:
+      description: Run in simulation mode without actual memory access
+      type: boolean
+      default: true
+    dump_path:
+      description: Path for simulated credential dump output
+      type: string
+      default: C:\temp\lsass_simulation.txt
+  dependency_executor_name: powershell
+  dependencies:
+  - description: LSASS process should be running
+    prereq_command: |
+      $lsass = Get-Process -Name lsass -ErrorAction SilentlyContinue
+      if (-not $lsass) { exit 1 }
+    get_prereq_command: |
+      Write-Host "LSASS process is a critical Windows component and should always be running"
+      Write-Host "If LSASS is not running, the system has serious issues"
+  - description: Temp directory should exist for simulation output
+    prereq_command: |
+      Test-Path "C:\temp"
+    get_prereq_command: |
+      New-Item -Path "C:\temp" -ItemType Directory -Force
+  executor:
+    command: |
+      Write-Host "=== BYOVD LSASS Memory Access Simulation ==="
+      
+      if ("#{simulation_only}" -eq "true") {
+        Write-Host "Running in SAFE SIMULATION MODE - no actual memory access"
+        
+        # Simulate the process identification phase
+        $lsassProc = Get-Process -Name lsass
+        Write-Host "Target LSASS Process identified:"
+        Write-Host "  - Process Name: $($lsassProc.ProcessName)"
+        Write-Host "  - Process ID: $($lsassProc.Id)"
+        Write-Host "  - Start Time: $($lsassProc.StartTime)"
+        Write-Host "  - Working Set: $([math]::Round($lsassProc.WorkingSet/1MB, 2)) MB"
+        
+        # Simulate kernel-level access attempt
+        Write-Host ""
+        Write-Host "Simulating kernel-level memory access techniques..."
+        Write-Host "  [1] Bypassing LSA protection using kernel privileges"
+        Write-Host "  [2] Accessing LSA authentication packages"
+        Write-Host "  [3] Enumerating credential structures in memory"
+        Write-Host "  [4] Extracting authentication data"
+        
+        # Simulate credential extraction results
+        Write-Host ""
+        Write-Host "Simulated credential extraction results:"
+        $simulatedOutput = @"
+=== BYOVD LSASS Memory Access Simulation Results ===
+Timestamp: $(Get-Date)
+Target Process: lsass.exe (PID: $($lsassProc.Id))
+
+[SIMULATION] Authentication Packages Found:
+  - NTLM
+  - Kerberos
+  - Negotiate
+  - Digest
+
+[SIMULATION] Credential Structures:
+  - MSV1_0 Authentication Package
+  - Kerberos Ticket Cache
+  - Domain Cached Credentials
+
+[SIMULATION] Extracted Data (Test Data Only):
+  Username: TestUser
+  Domain: TESTDOMAIN
+  NTLM Hash: aad3b435b51404eeaad3b435b51404ee
+  Kerberos TGT: [Simulated ticket data]
+
+NOTE: This is a simulation - no actual credentials were extracted
+"@
+        
+        # Write simulation output to file
+        $simulatedOutput | Out-File -FilePath "#{dump_path}" -Encoding UTF8
+        Write-Host "Simulation output written to: #{dump_path}"
+        
+        # Simulate additional malicious activities
+        Write-Host ""
+        Write-Host "Simulating post-extraction activities..."
+        Write-Host "  - Credential validation against domain controller"
+        Write-Host "  - Lateral movement preparation"
+        Write-Host "  - Persistence mechanism installation"
+        
+        # Log the simulation event
+        try {
+          New-EventLog -LogName Security -Source "Microsoft-Windows-Security-Auditing" -ErrorAction SilentlyContinue
+        } catch {}
+        
+        # Create custom event log entry
+        $eventMessage = "BYOVD Test: Simulated LSASS memory access via kernel-level privileges. Process ID: $($lsassProc.Id), Simulation Time: $(Get-Date)"
+        Write-EventLog -LogName Application -Source "BYOVD-Test" -EventId 1004 -EntryType Warning -Message $eventMessage
+        
+        Write-Host ""
+        Write-Host "=== LSASS Memory Access Simulation Summary ==="
+        Write-Host "Technique: T1003.001 - OS Credential Dumping: LSASS Memory"
+        Write-Host "Method: Kernel-level memory access bypass"
+        Write-Host "Status: Simulation completed successfully"
+        Write-Host "Detection: Monitor for unusual LSASS process access patterns"
+        Write-Host "Mitigation: Enable LSA protection, Credential Guard, HVCI"
+        
+      } else {
+        Write-Host "ERROR: Actual LSASS memory access disabled for safety"
+        Write-Host "This test only runs in simulation mode to prevent credential exposure"
+        Write-Host "Real credential dumping would violate security policies"
+      }
+    cleanup_command: |
+      # Remove simulation output file
+      if (Test-Path "#{dump_path}") {
+        Remove-Item "#{dump_path}" -Force
+        Write-Host "Simulation output file removed: #{dump_path}"
+      }
+      Write-Host "LSASS memory access simulation cleanup completed"
+    name: powershell
+    elevation_required: true

@@ -1,0 +1,66 @@
+attack_technique: T1068
+display_name: BYOVD - Vulnerable Driver Loading
+atomic_tests:
+- name: Load Vulnerable Intel Ethernet Driver
+  auto_generated_guid: 7c8b9c45-2d4e-4f8a-9b3c-1e7d9f2a5b8c
+  description: |
+    Simulates loading of vulnerable Intel Ethernet diagnostics driver (iqvw64.sys) 
+    commonly used in BYOVD attacks by SCATTERED SPIDER and other threat actors.
+    This test requires administrative privileges and should only be run in isolated environments.
+    Reference: CVE-2015-2291, SCATTERED SPIDER campaigns
+  supported_platforms:
+  - windows
+  input_arguments:
+    driver_path:
+      description: Path to the vulnerable driver file
+      type: string
+      default: C:\Windows\System32\drivers\iqvw64.sys
+    service_name:
+      description: Name of the service to create for the driver
+      type: string
+      default: VulnEthDriver
+  dependency_executor_name: powershell
+  dependencies:
+  - description: Vulnerable driver must exist on disk
+    prereq_command: |
+      Test-Path "#{driver_path}"
+    get_prereq_command: |
+      Write-Host "Please obtain vulnerable driver for testing from LOLDrivers project"
+      Write-Host "WARNING: Only use in controlled test environment"
+      Write-Host "Download from: https://github.com/magicsword-io/LOLDrivers"
+  executor:
+    command: |
+      # Create service for vulnerable driver
+      Write-Host "Creating service for vulnerable driver..."
+      sc.exe create #{service_name} binPath= "#{driver_path}" type= kernel start= demand
+      
+      if ($LASTEXITCODE -eq 0) {
+        Write-Host "Service created successfully"
+        
+        # Start the vulnerable driver service
+        Write-Host "Starting vulnerable driver service..."
+        sc.exe start #{service_name}
+        
+        if ($LASTEXITCODE -eq 0) {
+          Write-Host "Driver loaded successfully"
+          
+          # Verify driver loaded
+          $service = Get-WmiObject Win32_Service | Where-Object {$_.Name -eq "#{service_name}"}
+          if ($service) {
+            Write-Host "Driver service status: $($service.State)"
+            Write-Host "BYOVD simulation successful - vulnerable driver loaded"
+          }
+        } else {
+          Write-Host "Failed to start driver service"
+        }
+      } else {
+        Write-Host "Failed to create driver service"
+      }
+    cleanup_command: |
+      # Stop and delete the service
+      Write-Host "Cleaning up vulnerable driver..."
+      sc.exe stop #{service_name}
+      sc.exe delete #{service_name}
+      Write-Host "Vulnerable driver service removed"
+    name: powershell
+    elevation_required: true

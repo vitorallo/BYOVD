@@ -1,0 +1,90 @@
+attack_technique: T1562.001
+display_name: BYOVD - Security Process Termination
+atomic_tests:
+- name: Simulate Security Process Termination via Kernel Access
+  auto_generated_guid: a1b2c3d4-e5f6-7890-1234-567890abcdef
+  description: |
+    Simulates the termination of security processes using elevated privileges
+    mimicking malicious driver behavior observed in Medusa ransomware attacks.
+    Uses POORTRY/STONESTOP and ABYSSWORKER techniques for security evasion.
+  supported_platforms:
+  - windows
+  input_arguments:
+    target_processes:
+      description: Comma-separated list of process names to target (safe test processes)
+      type: string
+      default: notepad.exe,calc.exe,mspaint.exe
+    simulation_mode:
+      description: Run in safe simulation mode
+      type: boolean
+      default: true
+  dependency_executor_name: powershell
+  dependencies:
+  - description: Target processes should be running for realistic simulation
+    prereq_command: |
+      $processes = "#{target_processes}".Split(',')
+      $running = $true
+      foreach ($proc in $processes) {
+        $procName = $proc.Replace('.exe','')
+        if (-not (Get-Process -Name $procName -ErrorAction SilentlyContinue)) {
+          $running = $false
+          break
+        }
+      }
+      if (-not $running) { exit 1 }
+    get_prereq_command: |
+      $processes = "#{target_processes}".Split(',')
+      foreach ($proc in $processes) {
+        $procName = $proc.Replace('.exe','')
+        if (-not (Get-Process -Name $procName -ErrorAction SilentlyContinue)) {
+          Write-Host "Starting $proc for simulation..."
+          Start-Process $proc
+          Start-Sleep 2
+        }
+      }
+  executor:
+    command: |
+      if ("#{simulation_mode}" -eq "true") {
+        # Safe simulation mode
+        Write-Host "=== BYOVD Security Process Termination Simulation ==="
+        Write-Host "Simulating POORTRY/STONESTOP and ABYSSWORKER techniques..."
+        
+        $processes = "#{target_processes}".Split(',')
+        
+        foreach ($processName in $processes) {
+          $procName = $processName.Replace('.exe','')
+          $targetProc = Get-Process -Name $procName -ErrorAction SilentlyContinue
+          
+          if ($targetProc) {
+            Write-Host "Targeting process: $processName (PID: $($targetProc.Id))"
+            Write-Host "Simulating kernel-level process termination..."
+            
+            # Simulate the actual termination
+            Stop-Process -Id $targetProc.Id -Force
+            Write-Host "Process terminated successfully via simulated kernel access"
+            
+            # Log the event for detection testing
+            $logMessage = "BYOVD Test: Process $processName (PID: $($targetProc.Id)) terminated via simulated malicious driver"
+            try {
+              New-EventLog -LogName Application -Source "BYOVD-Test" -ErrorAction SilentlyContinue
+            } catch {}
+            Write-EventLog -LogName Application -Source "BYOVD-Test" -EventId 1001 -EntryType Warning -Message $logMessage
+          } else {
+            Write-Host "Process $processName not found - skipping"
+          }
+        }
+        
+        Write-Host "=== Simulation Summary ==="
+        Write-Host "Technique: T1562.001 - Impair Defenses"
+        Write-Host "Simulated: Kernel-level security process termination"
+        Write-Host "Reference: Medusa ABYSSWORKER, SCATTERED SPIDER POORTRY"
+        Write-Host "Detection: Monitor for mass security process terminations"
+      } else {
+        Write-Host "ERROR: Non-simulation mode disabled for safety"
+        Write-Host "This test only operates in simulation mode"
+      }
+    cleanup_command: |
+      Write-Host "BYOVD process termination simulation completed"
+      Write-Host "Test processes have been terminated as part of simulation"
+    name: powershell
+    elevation_required: true

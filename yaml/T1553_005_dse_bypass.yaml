@@ -1,0 +1,99 @@
+attack_technique: T1553.005
+display_name: BYOVD - Driver Signature Enforcement Bypass
+atomic_tests:
+- name: Simulate DSE Bypass via Registry Modification
+  auto_generated_guid: f1e2d3c4-b5a6-9870-4321-098765fedcba
+  description: |
+    Simulates bypassing Windows Driver Signature Enforcement by modifying registry values
+    commonly used in BYOVD attacks to load unsigned malicious drivers.
+    Mimics techniques used by various threat actors to disable security controls.
+  supported_platforms:
+  - windows
+  input_arguments:
+    backup_dse_settings:
+      description: Whether to backup current DSE settings
+      type: boolean
+      default: true
+    test_mode_only:
+      description: Run in test mode without modifying actual DSE settings
+      type: boolean
+      default: true
+  dependency_executor_name: powershell
+  dependencies:
+  - description: Registry backup location should be accessible
+    prereq_command: |
+      Test-Path "C:\temp" -ErrorAction SilentlyContinue
+    get_prereq_command: |
+      New-Item -Path "C:\temp" -ItemType Directory -Force
+      Write-Host "Created C:\temp directory for backups"
+  executor:
+    command: |
+      Write-Host "=== BYOVD Driver Signature Enforcement Bypass Simulation ==="
+      
+      if ("#{test_mode_only}" -eq "true") {
+        Write-Host "Running in SAFE TEST MODE - actual DSE not modified"
+        
+        # Backup current settings if requested
+        if ("#{backup_dse_settings}" -eq "true") {
+          Write-Host "Backing up current DSE registry settings..."
+          $backupPath = "C:\temp\dse_backup_$(Get-Date -Format 'yyyyMMdd_HHmmss').reg"
+          try {
+            reg export "HKLM\SYSTEM\CurrentControlSet\Control\CI" $backupPath 2>$null
+            if (Test-Path $backupPath) {
+              Write-Host "Backup saved to: $backupPath"
+            }
+          } catch {
+            Write-Host "Backup creation failed (expected in test environment)"
+          }
+        }
+        
+        # Create test registry key for simulation
+        $testPath = "HKLM:\SOFTWARE\BYOVD-Test\CI-Simulation"
+        Write-Host "Creating test registry path: $testPath"
+        New-Item -Path $testPath -Force | Out-Null
+        
+        # Simulate registry modifications that would bypass DSE
+        Write-Host "Simulating DSE bypass registry modifications..."
+        
+        Set-ItemProperty -Path $testPath -Name "TestSigning" -Value 1 -Type DWord
+        Write-Host "  - Set TestSigning = 1 (Enable test signing)"
+        
+        Set-ItemProperty -Path $testPath -Name "VulnerableDriverBlocklistEnable" -Value 0 -Type DWord  
+        Write-Host "  - Set VulnerableDriverBlocklistEnable = 0 (Disable blocklist)"
+        
+        Set-ItemProperty -Path $testPath -Name "RequireDriverSignatureEnforcement" -Value 0 -Type DWord
+        Write-Host "  - Set RequireDriverSignatureEnforcement = 0 (Disable DSE)"
+        
+        Set-ItemProperty -Path $testPath -Name "IntegrityChecks" -Value 0 -Type DWord
+        Write-Host "  - Set IntegrityChecks = 0 (Disable integrity checks)"
+        
+        # Simulate bcdedit commands (without execution)
+        Write-Host ""
+        Write-Host "Simulated bcdedit commands that would be executed:"
+        Write-Host "  bcdedit /set testsigning on"
+        Write-Host "  bcdedit /set nointegritychecks on"
+        Write-Host "  bcdedit /set loadoptions ENABLE_INTEGRITY_CHECKS"
+        
+        # Log the simulation
+        try {
+          New-EventLog -LogName System -Source "BYOVD-Test" -ErrorAction SilentlyContinue
+        } catch {}
+        Write-EventLog -LogName System -Source "BYOVD-Test" -EventId 1003 -EntryType Warning -Message "BYOVD Test: Simulated Driver Signature Enforcement bypass"
+        
+        Write-Host ""
+        Write-Host "=== DSE Bypass Simulation Completed ==="
+        Write-Host "Technique: T1553.005 - Subvert Trust Controls"
+        Write-Host "Note: Actual Windows DSE was NOT modified"
+        Write-Host "Detection: Monitor for CI registry modifications and bcdedit usage"
+        
+      } else {
+        Write-Host "ERROR: Actual DSE modification disabled for safety"
+        Write-Host "This test only runs in simulation mode to prevent system damage"
+      }
+    cleanup_command: |
+      # Remove test registry key
+      Write-Host "Cleaning up test registry entries..."
+      Remove-Item -Path "HKLM:\SOFTWARE\BYOVD-Test" -Recurse -Force -ErrorAction SilentlyContinue
+      Write-Host "DSE bypass simulation cleanup completed"
+    name: powershell
+    elevation_required: true
