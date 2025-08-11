@@ -2,8 +2,6 @@
 
 # BYOVD Attack Simulation Package
 
-## 🎯 **PROJECT COMPLETED SUCCESSFULLY**
-
 This repository contains a comprehensive BYOVD (Bring Your Own Vulnerable Driver) attack simulation package that recreates real-world attack chains used by advanced threat actors including **Lazarus Group**, **SCATTERED SPIDER**, and **Medusa ransomware operators**.
 
 **⚠️ WARNING: For authorized security testing and research purposes only!**

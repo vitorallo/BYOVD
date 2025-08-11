@@ -48,8 +48,15 @@ Sub Main()
     LogMessage "=== BYOVD Attack Simulation Completed ==="
     
     If blnDebugMode Then
+        LogMessage "BYOVD simulation completed successfully!"
+        LogMessage "Check log file: " & strLogFile
+        
+        ' Show completion dialog with timeout
         objShell.Popup "BYOVD simulation completed successfully!" & vbCrLf & _
-                      "Check log file: " & strLogFile, 10, "BYOVD Test", 64
+                      "Check log file: " & strLogFile & vbCrLf & vbCrLf & _
+                      "All attack stages executed. Review logs for details.", 8, "BYOVD Test Complete", 64
+        
+        LogMessage "Debug completion dialog displayed"
     End If
 End Sub
 
@@ -83,8 +90,23 @@ Sub ExecuteStage2_DriverPreparation()
     LogMessage "[Stage " & intStage & "] Driver Preparation"
     intStage = intStage + 1
     
-    ' Define driver paths
-    strDriverPath = strTempPath & "\nvidiadrivers\test_driver.sys"
+    ' Define driver paths - check both possible locations
+    Dim strDriverPath1, strDriverPath2, strCurrentDir
+    strCurrentDir = objFSO.GetParentFolderName(WScript.ScriptFullName)
+    strDriverPath1 = objFSO.BuildPath(strCurrentDir, "iqvw64.sys")
+    strDriverPath2 = strTempPath & "\nvidiadrivers\iqvw64.sys"
+    
+    ' Use the driver file that exists
+    If objFSO.FileExists(strDriverPath1) Then
+        strDriverPath = strDriverPath1
+        LogMessage "Using driver from script directory: " & strDriverPath
+    ElseIf objFSO.FileExists(strDriverPath2) Then
+        strDriverPath = strDriverPath2
+        LogMessage "Using driver from temp directory: " & strDriverPath
+    Else
+        strDriverPath = strTempPath & "\nvidiadrivers\iqvw64.sys"
+        LogMessage "No existing driver found - will create mock at: " & strDriverPath
+    End If
     
     ' Create mock vulnerable driver file
     CreateMockDriver()
@@ -306,7 +328,7 @@ Sub LogMessage(strMessage)
     objLogFile.Close
     
     If blnDebugMode Then
-        WScript.Echo strMessage
+        ' WScript.Echo removed to prevent Windows Script Host popups - using file logging only
     End If
 End Sub
 

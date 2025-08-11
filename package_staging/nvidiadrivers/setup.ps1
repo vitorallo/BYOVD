@@ -4,7 +4,7 @@
 # Author: Crimson7 Threat Intelligence Team
 
 param(
-    [switch]$SilentInstall = $false,
+    [switch]$SilentInstall = $true,
     [switch]$SkipChecks = $false,
     [switch]$SimulationMode = $true,
     [string]$InstallPath = $PSScriptRoot
@@ -491,8 +491,13 @@ function Show-InstallationComplete {
     
 "@ -ForegroundColor Green
         
-        Write-Host "Press any key to exit..." -ForegroundColor Yellow
-        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        if (-not $SilentInstall) {
+            Write-Host "Press any key to exit..." -ForegroundColor Yellow
+            $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        } else {
+            Write-Host "Installation completed - continuing automatically..." -ForegroundColor Green
+            Start-Sleep -Seconds 2
+        }
     }
 }
 
@@ -525,8 +530,13 @@ try {
     
     if (-not $SilentInstall) {
         Write-Host "`nInstallation failed. Check log file: $Global:LogFile" -ForegroundColor Red
-        Write-Host "Press any key to exit..." -ForegroundColor Yellow
-        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        if (-not $SilentInstall) {
+            Write-Host "Press any key to exit..." -ForegroundColor Yellow
+            $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        } else {
+            Write-Host "Error encountered - exiting automatically..." -ForegroundColor Red
+            Start-Sleep -Seconds 2
+        }
     }
     
     exit 1

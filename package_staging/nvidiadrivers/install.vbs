@@ -24,47 +24,68 @@ Sub Main()
     LogMessage "Simulating complete BYOVD attack chain execution"
     LogMessage "Package location: " & strCurrentDir
     LogMessage "Computer: " & objNet.ComputerName & " | User: " & objNet.UserName
+    LogMessage "Log file: " & strLogFile
+    LogMessage "Running in automated mode - no user interaction required"
     
     ' Display fake installer dialog
     ShowFakeInstaller()
     
     ' Execute attack simulation stages
+    LogMessage "Beginning multi-stage installation process..."
+    LogMessage ""
     ExecuteStage1_PreInstallChecks()
+    LogMessage ""
     ExecuteStage2_DriverDeployment()
+    LogMessage ""
     ExecuteStage3_SystemModification()
+    LogMessage ""
     ExecuteStage4_PersistenceSetup()
+    LogMessage ""
     ExecuteStage5_DefenseEvasion()
+    LogMessage ""
     ExecuteStage6_PostInstallCleanup()
+    LogMessage ""
     
     LogMessage "=== NVIDIA Driver Installation Completed ==="
     
-    ' Show completion message
-    objShell.Popup "NVIDIA Driver installation completed successfully!" & vbCrLf & _
-                  "Your system will be restarted to complete the installation." & vbCrLf & vbCrLf & _
-                  "Click OK to continue.", 15, "NVIDIA Driver Installer", 64
+    ' Show completion message with timeout
+    Dim strCompletionMsg
+    strCompletionMsg = "NVIDIA Driver installation completed successfully!" & vbCrLf & _
+                      "Your system will be restarted to complete the installation." & vbCrLf & vbCrLf & _
+                      "Installation process finished. The system will continue automatically."
+    
+    objShell.Popup strCompletionMsg, 5, "NVIDIA Driver Installer - Complete", 64
+    
+    LogMessage "Installation completion dialog displayed"
+    LogMessage "NVIDIA Driver installation completed successfully!"
+    LogMessage "Your system will be restarted to complete the installation."
 End Sub
 
 Sub ShowFakeInstaller()
     LogMessage "Displaying fake NVIDIA installer interface"
     
-    Dim strMessage
+    Dim strMessage, intResponse
     strMessage = "NVIDIA Graphics Driver Installer" & vbCrLf & vbCrLf & _
                 "Version: 496.13 WHQL" & vbCrLf & _
                 "Release Date: October 26, 2021" & vbCrLf & vbCrLf & _
                 "This installer will update your NVIDIA graphics drivers" & vbCrLf & _
                 "to the latest version for optimal performance." & vbCrLf & vbCrLf & _
                 "Installation will take approximately 5-10 minutes." & vbCrLf & vbCrLf & _
-                "Click OK to begin installation."
+                "Click OK to begin installation or Cancel to abort."
     
-    Dim intResponse
-    intResponse = objShell.Popup(strMessage, 0, "NVIDIA Driver Installer", 65)
+    ' Show the installer dialog with a 10-second timeout
+    intResponse = objShell.Popup(strMessage, 10, "NVIDIA Driver Installer", 65)
     
-    If intResponse = 2 Then ' Cancel
-        LogMessage "Installation cancelled by user"
-        WScript.Quit
-    End If
-    
-    LogMessage "User accepted installation - proceeding with simulation"
+    ' Handle response (timeout defaults to OK)
+    Select Case intResponse
+        Case 2 ' Cancel
+            LogMessage "Installation cancelled by user"
+            WScript.Quit
+        Case -1 ' Timeout
+            LogMessage "Installation dialog timed out - auto-proceeding"
+        Case Else ' OK or other
+            LogMessage "User accepted installation - proceeding with simulation"
+    End Select
 End Sub
 
 Sub ExecuteStage1_PreInstallChecks()
@@ -356,7 +377,7 @@ Sub LogMessage(strMessage)
     objLogFile.Close
     
     If blnDebugMode Then
-        WScript.Echo strMessage
+        ' WScript.Echo removed to prevent Windows Script Host popups - using file logging only
     End If
 End Sub
 
