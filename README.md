@@ -600,16 +600,12 @@ reg add "HKCU\Software\Microsoft\Windows Script Host\Settings" /v Enabled /t REG
 
 ## 🤝 Support & Contact
 
-### **📧 Support Channels**
-- **Technical Issues**: Review troubleshooting section above
-- **Documentation Questions**: Refer to detailed manuals in this repository
-- **Enhancement Requests**: Follow responsible disclosure guidelines
-- **Training Inquiries**: Contact your security team for integration assistance
+info@crimson7.io, www.crimson7.io
 
 ### **🏷️ Version Information**
-- **Version**: 1.0
-- **Release Date**: July 2025
-- **Author**: Crimson7 Threat Intelligence Team
+- **Version**: 2.0
+- **Release Date**: August 2025
+- **Author**: Crimson7 Research Team
 - **Classification**: Internal Research Use
 
 ### **📄 License & Legal**
@@ -660,4 +656,4 @@ This project contributes to the broader cybersecurity community by:
 
 ---
 
-*This document is prepared by Crimson7 Threat Intelligence Team - 2025 Version 1.0*
+*This document is prepared by Crimson7 Research Team - 2025 Version 2.0*
