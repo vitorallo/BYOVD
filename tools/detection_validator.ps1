@@ -1,6 +1,7 @@
-# BYOVD Detection Validator
+# BYOVD Detection Validator - Enhanced Path Detection
 # Tool to validate security controls detect BYOVD simulation activities
 # Author: Crimson7 Research Team
+# Version: 2.0 - Fixed path detection for nested extraction structure
 
 param(
     [switch]$TestDriverInstallation = $false,
@@ -200,10 +201,12 @@ function Invoke-DriverInstallationTest {
     Write-ValidationLog "  - T1547.006: Kernel Modules and Extensions" -Level "INFO"
     Write-ValidationLog "  - T1070.004: File Deletion (Indicator Removal)" -Level "INFO"
     
-    # Look for actual BYOVD simulation artifacts first
+    # Look for actual BYOVD simulation artifacts first (fixed path separators)
     $actualDriverPaths = @(
+        "$env:TEMP\nvidiadrivers\nvidiadrivers\iqvw64.sys",  # Nested structure from extraction
         "$env:TEMP\nvidiadrivers\iqvw64.sys",
         "$env:TEMP\iqvw64.sys",
+        ".\nvidiadrivers\nvidiadrivers\iqvw64.sys",  # Local nested structure
         ".\nvidiadrivers\iqvw64.sys",
         ".\iqvw64.sys"
     )
@@ -314,11 +317,17 @@ function Invoke-VBSExecutionTest {
     Write-ValidationLog "  - T1059.005: Visual Basic Script Execution" -Level "INFO"
     Write-ValidationLog "  - T1105: Ingress Tool Transfer (Script Delivery)" -Level "INFO"
     
-    # Look for actual BYOVD VBS files first
+    # Look for actual BYOVD VBS files first (fixed path separators)
     $actualVBSPaths = @(
+        "$env:TEMP\nvidiadrivers\nvidiadrivers\driver_loader.vbs",  # Nested structure from extraction
+        "$env:TEMP\nvidiadrivers\nvidiadrivers\install.vbs",
+        "$env:TEMP\nvidiadrivers\nvidiadrivers\update.vbs",
         "$env:TEMP\nvidiadrivers\driver_loader.vbs",
         "$env:TEMP\nvidiadrivers\install.vbs", 
         "$env:TEMP\nvidiadrivers\update.vbs",
+        ".\nvidiadrivers\nvidiadrivers\driver_loader.vbs",  # Local nested structure
+        ".\nvidiadrivers\nvidiadrivers\install.vbs",
+        ".\nvidiadrivers\nvidiadrivers\update.vbs",
         ".\nvidiadrivers\driver_loader.vbs",
         ".\nvidiadrivers\install.vbs",
         ".\nvidiadrivers\update.vbs"
@@ -466,12 +475,15 @@ function Invoke-FileOperationsTest {
     $testDir = "$env:TEMP\byovd_file_test"
     New-Item -Path $testDir -ItemType Directory -Force | Out-Null
     
-    # Test various file operations
+    # Test various file operations with realistic BYOVD filenames
     $testFiles = @(
-        @{Name="driver_test.sys"; Content="Mock driver file for detection testing"},
-        @{Name="install_log.txt"; Content="Installation log for BYOVD test"},
-        @{Name="config.ini"; Content="Configuration file test"},
-        @{Name="backup.reg"; Content="Registry backup simulation"}
+        @{Name="iqvw64.sys"; Content="Mock vulnerable Intel Ethernet driver for detection testing - CVE-2015-2291"},
+        @{Name="iqvw64_install_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"; Content="BYOVD driver installation log"},
+        @{Name="config.ini"; Content="BYOVD configuration file test"},
+        @{Name="nvidia_backup.reg"; Content="NVIDIA driver registry backup simulation"},
+        @{Name="byovd_artifacts.txt"; Content="BYOVD attack artifacts file"},
+        @{Name="iqvw64_errors_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"; Content="BYOVD error logging test"},
+        @{Name="iqvw64_execution_summary_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"; Content="BYOVD execution summary test"}
     )
     
     foreach ($file in $testFiles) {
@@ -484,9 +496,14 @@ function Invoke-FileOperationsTest {
         # Modify file
         Add-Content -Path $filePath -Value "`nModified: $(Get-Date)"
         
-        # Delete file
-        Remove-Item $filePath -Force
-        Test-SecurityEventLogging -TestName "File Deletion - $($file.Name)" -EventID 23 -LogName "Microsoft-Windows-Sysmon/Operational" -MitreTechnique "T1070.004" -MitreTactic "Defense Evasion"
+        # Test file existence before deletion
+        if (Test-Path $filePath) {
+            # Delete file
+            Remove-Item $filePath -Force
+            Test-SecurityEventLogging -TestName "File Deletion - $($file.Name)" -EventID 23 -LogName "Microsoft-Windows-Sysmon/Operational" -MitreTechnique "T1070.004" -MitreTactic "Defense Evasion"
+        } else {
+            Write-ValidationLog "File not found for deletion test: $filePath" -Level "WARNING"
+        }
     }
     
     # Cleanup
@@ -788,6 +805,7 @@ function Validate-AttackChainIoCs {
     $fileIoCs = @(
         "$env:TEMP\nvidiadrivers.zip",
         "$env:TEMP\nvidiadrivers",
+        "$env:TEMP\nvidiadrivers\nvidiadrivers",  # Nested extraction directory
         "$env:TEMP\nvidia_*.txt",
         "$env:TEMP\byovd_*.txt",
         "$env:TEMP\*_iocs.txt",
@@ -800,7 +818,10 @@ function Validate-AttackChainIoCs {
         "$env:TEMP\nvidia_install_*.log",
         "$env:TEMP\nvidia_update_check.vbs",
         "$env:TEMP\iqvw64_errors_*.log",
-        "$env:TEMP\iqvw64_execution_summary_*.txt"
+        "$env:TEMP\iqvw64_execution_summary_*.txt",
+        "$env:TEMP\*iqvw64*.sys",  # Add driver file patterns
+        "$env:TEMP\nvidiadrivers\*iqvw64*.sys",  # Driver in extraction directory
+        "$env:TEMP\nvidiadrivers\nvidiadrivers\*iqvw64*.sys"  # Driver in nested structure
     )
     
     foreach ($ioc in $fileIoCs) {
@@ -989,6 +1010,93 @@ function Validate-AttackChainIoCs {
     Write-ValidationLog "TOTAL IoCs DETECTED: $($iocResults.TotalFound)" -Level "SUCCESS"
     
     return $detected
+}
+
+function Validate-PathAccuracy {
+    param([string]$TestName = "Path Accuracy Validation")
+    
+    Write-ValidationLog "=== Starting Path Accuracy Validation ===" -Level "INFO"
+    Write-ValidationLog "Verifying that detection validator paths match actual simulation artifacts" -Level "INFO"
+    
+    # Check for actual extraction directory structure
+    $extractionDirs = @(
+        "$env:TEMP\nvidiadrivers",
+        "$env:TEMP\nvidiadrivers\nvidiadrivers"
+    )
+    
+    foreach ($dir in $extractionDirs) {
+        if (Test-Path $dir) {
+            Write-ValidationLog "[+] FOUND: Extraction directory - $dir" -Level "SUCCESS"
+            # List contents
+            try {
+                $contents = Get-ChildItem $dir -ErrorAction SilentlyContinue
+                foreach ($item in $contents) {
+                    Write-ValidationLog "    Contents: $($item.Name) ($($item.GetType().Name))" -Level "INFO"
+                }
+            } catch {
+                Write-ValidationLog "Could not list contents of $dir" -Level "WARNING"
+            }
+        } else {
+            Write-ValidationLog "[-] NOT FOUND: Extraction directory - $dir" -Level "WARNING"
+        }
+    }
+    
+    # Check for actual driver files
+    $driverPaths = @(
+        "$env:TEMP\iqvw64.sys",
+        "$env:TEMP\nvidiadrivers\iqvw64.sys",
+        "$env:TEMP\nvidiadrivers\nvidiadrivers\iqvw64.sys"
+    )
+    
+    foreach ($path in $driverPaths) {
+        if (Test-Path $path) {
+            $file = Get-Item $path
+            Write-ValidationLog "[+] FOUND: Driver file - $path ($($file.Length) bytes)" -Level "SUCCESS"
+        } else {
+            Write-ValidationLog "[-] NOT FOUND: Driver file - $path" -Level "INFO"
+        }
+    }
+    
+    # Check for actual VBS files
+    $vbsPaths = @(
+        "$env:TEMP\nvidiadrivers\install.vbs",
+        "$env:TEMP\nvidiadrivers\nvidiadrivers\install.vbs",
+        "$env:TEMP\nvidiadrivers\driver_loader.vbs",
+        "$env:TEMP\nvidiadrivers\nvidiadrivers\driver_loader.vbs"
+    )
+    
+    foreach ($path in $vbsPaths) {
+        if (Test-Path $path) {
+            $file = Get-Item $path
+            Write-ValidationLog "[+] FOUND: VBS file - $path ($($file.Length) bytes)" -Level "SUCCESS"
+        } else {
+            Write-ValidationLog "[-] NOT FOUND: VBS file - $path" -Level "INFO"
+        }
+    }
+    
+    # Check for log files
+    $logPatterns = @(
+        "$env:TEMP\iqvw64_*.log",
+        "$env:TEMP\*nvidia*.log",
+        "$env:TEMP\byovd_*.log"
+    )
+    
+    foreach ($pattern in $logPatterns) {
+        try {
+            $files = Get-ChildItem $pattern -ErrorAction SilentlyContinue
+            if ($files) {
+                foreach ($file in $files) {
+                    Write-ValidationLog "[+] FOUND: Log file - $($file.FullName)" -Level "SUCCESS"
+                }
+            } else {
+                Write-ValidationLog "[-] NOT FOUND: Log pattern - $pattern" -Level "INFO"
+            }
+        } catch {
+            Write-ValidationLog "Error checking pattern $pattern - $($_.Exception.Message)" -Level "WARNING"
+        }
+    }
+    
+    Write-ValidationLog "Path accuracy validation completed" -Level "INFO"
 }
 
 function Validate-FailedTechniqueScenarios {
@@ -1608,6 +1716,7 @@ if ($TestAttackChainIoCs) {
 }
 
 if ($TestFailedTechniques) {
+    Validate-PathAccuracy
     Validate-FailedTechniqueScenarios
 }
 
